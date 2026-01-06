@@ -8,7 +8,7 @@ interface ProductosGridProps {
   onAgregar: (producto: Producto) => void
 }
 
-export default function ProductosGrid({ productos, categorias, onAgregar }: ProductosGridProps) {
+export default function ProductosGrid({ productos, onAgregar }: ProductosGridProps) {
   const [filtro, setFiltro] = useState('')
 
   const obtenerRangoPrecios = (producto: Producto) => {

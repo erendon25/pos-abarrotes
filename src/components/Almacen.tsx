@@ -273,7 +273,6 @@ export default function Almacen({
                     <select
                       value={formularioProducto.categoria || ''}
                       onChange={(e) => {
-                        const cat = categorias.find(c => c.nombre === e.target.value)
                         setFormularioProducto({ 
                           ...formularioProducto, 
                           categoria: e.target.value,
@@ -285,7 +284,7 @@ export default function Almacen({
                         <option key={cat.nombre} value={cat.nombre}>{cat.nombre}</option>
                       ))}
                     </select>
-                    {categorias.find(c => c.nombre === formularioProducto.categoria)?.subcategorias.length > 0 && (
+                    {(categorias.find(c => c.nombre === formularioProducto.categoria)?.subcategorias.length ?? 0) > 0 && (
                       <select
                         value={formularioProducto.subcategoria || ''}
                         onChange={(e) => setFormularioProducto({ ...formularioProducto, subcategoria: e.target.value })}

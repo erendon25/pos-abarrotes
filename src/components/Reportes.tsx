@@ -92,37 +92,37 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
           subcategoria: item.subcategoriaSeleccionada || item.producto.subcategoria
         })
       }
-    })
 
-    // Agrupar por subcategoría
-    const subcategoria = item.subcategoriaSeleccionada || item.producto.subcategoria || 'Sin subcategoría'
-    const totalItemSub = precio * item.cantidad
-    
-    // Sumar a venta por subcategoría
-    ventasPorSubcategoria[subcategoria] = (ventasPorSubcategoria[subcategoria] || 0) + totalItemSub
-    
-    // Agrupar productos por subcategoría
-    if (!productosPorSubcategoria[subcategoria]) {
-      productosPorSubcategoria[subcategoria] = []
-    }
-    
-    const keyProductoSub = `${item.producto.nombre}-${item.subcategoriaSeleccionada || 'base'}`
-    const productoExistenteSub = productosPorSubcategoria[subcategoria].find(
-      p => `${p.nombre}-${p.subcategoria || 'base'}` === keyProductoSub
-    )
-    
-    if (productoExistenteSub) {
-      productoExistenteSub.cantidad += item.cantidad
-      productoExistenteSub.total += totalItemSub
-    } else {
-      productosPorSubcategoria[subcategoria].push({
-        nombre: item.producto.nombre,
-        cantidad: item.cantidad,
-        total: totalItemSub,
-        categoria: item.producto.categoria,
-        subcategoria: item.subcategoriaSeleccionada || item.producto.subcategoria
-      })
-    }
+      // Agrupar por subcategoría
+      const subcategoria = item.subcategoriaSeleccionada || item.producto.subcategoria || 'Sin subcategoría'
+      const totalItemSub = precio * item.cantidad
+      
+      // Sumar a venta por subcategoría
+      ventasPorSubcategoria[subcategoria] = (ventasPorSubcategoria[subcategoria] || 0) + totalItemSub
+      
+      // Agrupar productos por subcategoría
+      if (!productosPorSubcategoria[subcategoria]) {
+        productosPorSubcategoria[subcategoria] = []
+      }
+      
+      const keyProductoSub = `${item.producto.nombre}-${item.subcategoriaSeleccionada || 'base'}`
+      const productoExistenteSub = productosPorSubcategoria[subcategoria].find(
+        p => `${p.nombre}-${p.subcategoria || 'base'}` === keyProductoSub
+      )
+      
+      if (productoExistenteSub) {
+        productoExistenteSub.cantidad += item.cantidad
+        productoExistenteSub.total += totalItemSub
+      } else {
+        productosPorSubcategoria[subcategoria].push({
+          nombre: item.producto.nombre,
+          cantidad: item.cantidad,
+          total: totalItemSub,
+          categoria: item.producto.categoria,
+          subcategoria: item.subcategoriaSeleccionada || item.producto.subcategoria
+        })
+      }
+    })
   })
 
   // Calcular productos más y menos vendidos

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { obtenerSiguienteBoleta, obtenerSiguienteFactura } from '../utils/numeracion'
 import './Configuracion.css'
 
 interface ConfiguracionProps {

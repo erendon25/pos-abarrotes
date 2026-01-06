@@ -100,7 +100,7 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
     // Productos (formato vertical para ticketera)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
-    venta.items.forEach((item, index) => {
+    venta.items.forEach((item) => {
       // Verificar si necesitamos nueva página
       if (yPos > 280) {
         doc.addPage()

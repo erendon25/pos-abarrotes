@@ -87,7 +87,7 @@ function App() {
   const agregarAlCarritoConSubcategoria = (producto: Producto, subcategoria: string | null) => {
     setProductoSeleccionado(null)
 
-    setCarrito(prev => {
+    setCarrito((prev: ItemCarrito[]) => {
       const existe = prev.find(item => 
         item.producto.id === producto.id && 
         item.subcategoriaSeleccionada === subcategoria
