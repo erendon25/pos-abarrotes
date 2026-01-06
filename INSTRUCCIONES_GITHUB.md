@@ -91,3 +91,47 @@ git push
 
 O usa GitHub Desktop y simplemente haz click en "Commit" y "Push origin".
 
+## Configurar GitHub Pages (Para que la aplicación funcione en línea)
+
+**IMPORTANTE**: Para que tu aplicación funcione en GitHub Pages, necesitas seguir estos pasos:
+
+### Paso 1: Habilitar GitHub Pages
+
+1. Ve a tu repositorio en GitHub
+2. Click en **Settings** (Configuración)
+3. En el menú lateral, busca **Pages** (Páginas)
+4. En **Source** (Fuente), selecciona:
+   - **Source**: `GitHub Actions` (no "Deploy from a branch")
+5. Guarda los cambios
+
+### Paso 2: El workflow se ejecutará automáticamente
+
+- El archivo `.github/workflows/deploy.yml` que ya está en el proyecto se encargará de:
+  - Compilar tu aplicación automáticamente
+  - Desplegarla en GitHub Pages cada vez que hagas `push` a la rama `main`
+
+### Paso 3: Esperar el despliegue
+
+1. Después de hacer `push`, ve a la pestaña **Actions** en tu repositorio
+2. Verás un workflow ejecutándose llamado "Deploy to GitHub Pages"
+3. Espera a que termine (puede tardar 1-2 minutos)
+4. Cuando termine, verás un check verde ✅
+
+### Paso 4: Acceder a tu aplicación
+
+- Tu aplicación estará disponible en:
+  - Si tu repositorio es `username.github.io`: `https://username.github.io`
+  - Si tu repositorio es `username/repo-name`: `https://username.github.io/repo-name`
+
+### Nota importante sobre la configuración
+
+Si tu repositorio NO es `username.github.io` (es decir, es un repositorio de proyecto), necesitas cambiar el `base` en `vite.config.ts`:
+
+1. Abre `vite.config.ts`
+2. Cambia `base: '/'` por `base: '/nombre-de-tu-repositorio/'`
+3. Haz commit y push de los cambios
+
+Por ejemplo, si tu repositorio se llama `pos-abarrotes`, debería ser:
+```typescript
+base: '/pos-abarrotes/'
+```
