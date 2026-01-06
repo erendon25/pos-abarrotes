@@ -1,0 +1,116 @@
+.modal-content-selector {
+  background: var(--surface);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-body-selector {
+  padding: 1.5rem;
+}
+
+.producto-info-modal {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.producto-info-modal h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.categoria-modal {
+  margin: 0;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.selector-label {
+  margin: 0 0 1rem 0;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.opciones-subcategoria {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.opcion-subcategoria {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.opcion-subcategoria:hover {
+  border-color: var(--primary);
+  background: var(--background);
+}
+
+.opcion-subcategoria.seleccionada {
+  border-color: var(--primary);
+  background: #eff6ff;
+}
+
+.opcion-nombre {
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.opcion-precio {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 1.125rem;
+}
+
+.sin-variantes {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+}
+
+.precio-base {
+  margin-top: 1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.btn-confirmar {
+  padding: 0.75rem 1.5rem;
+  background: white;
+  color: #16191f;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-weight: 400;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.btn-confirmar:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  color: #111827;
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.3),
+              0 0 30px rgba(37, 99, 235, 0.15),
+              0 0 45px rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
+  transition: all 0.3s ease;
+}
+

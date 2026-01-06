@@ -1,0 +1,132 @@
+﻿.app {
+  min-height: 100vh;
+  background: var(--background);
+}
+
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 1.5rem 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 1rem;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.btn-almacen,
+.btn-reportes,
+.btn-configuracion {
+  padding: 0.75rem 1.5rem;
+  background: white;
+  color: #16191f;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.btn-reportes:hover,
+.btn-almacen:hover,
+.btn-configuracion:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  color: #111827;
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.3),
+              0 0 30px rgba(37, 99, 235, 0.15),
+              0 0 45px rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
+}
+
+.btn-almacen:active,
+.btn-reportes:active,
+.btn-configuracion:active {
+  background: #f3f4f6;
+  border-color: #6b7280;
+  transform: translateY(0);
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.2);
+}
+
+.subtitle {
+  margin: 0.25rem 0 0 0;
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.main-container {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 2rem;
+  padding: 2rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.productos-section h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+@media (max-width: 1024px) {
+  .main-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .carrito {
+    max-height: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: 1rem;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .header-buttons {
+    width: 100%;
+    flex-direction: column;
+  }
+  
+  .btn-almacen,
+  .btn-reportes {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .main-container {
+    padding: 1rem;
+    gap: 1rem;
+  }
+}
