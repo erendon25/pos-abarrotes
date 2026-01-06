@@ -88,9 +88,10 @@ function App() {
     setProductoSeleccionado(null)
 
     setCarrito((prev: ItemCarrito[]) => {
+      const subcategoriaValue = subcategoria || undefined
       const existe = prev.find(item => 
         item.producto.id === producto.id && 
-        item.subcategoriaSeleccionada === subcategoria
+        item.subcategoriaSeleccionada === subcategoriaValue
       )
       
       if (existe) {
@@ -101,12 +102,17 @@ function App() {
           return prev
         }
         return prev.map(item =>
-          item.producto.id === producto.id && item.subcategoriaSeleccionada === subcategoria
+          item.producto.id === producto.id && item.subcategoriaSeleccionada === subcategoriaValue
             ? { ...item, cantidad: nuevaCantidad }
             : item
         )
       }
-      return [...prev, { producto, cantidad: 1, subcategoriaSeleccionada: subcategoria }]
+      const nuevoItem: ItemCarrito = {
+        producto,
+        cantidad: 1,
+        ...(subcategoriaValue && { subcategoriaSeleccionada: subcategoriaValue })
+      }
+      return [...prev, nuevoItem]
     })
   }
 
