@@ -9,6 +9,7 @@ interface AlmacenProps {
   onVolver: () => void
   onActualizarProductos: (productos: Producto[]) => void
   onActualizarCategorias: (categorias: Categoria[]) => void
+  onCambiarVista?: (vista: 'ingresoMercaderia' | 'movimientosInventario' | 'vencimientos') => void
 }
 
 export default function Almacen({ 
@@ -16,7 +17,8 @@ export default function Almacen({
   categorias,
   onVolver, 
   onActualizarProductos,
-  onActualizarCategorias
+  onActualizarCategorias,
+  onCambiarVista
 }: AlmacenProps) {
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
@@ -39,7 +41,7 @@ export default function Almacen({
 
   const cancelarEdicion = () => {
     setEditandoId(null)
-    setFormularioProducto({ nombre: '', precio: 0, categoria: '', subcategoria: '', stock: 0, codigoBarras: '' })
+    setFormularioProducto({ nombre: '', precio: 0, categoria: '', subcategoria: '', stock: 0, codigoBarras: '', fechaVencimiento: undefined })
     setPreciosSubcategoria({})
     setEditandoPreciosSubcategoria(false)
   }
@@ -50,8 +52,18 @@ export default function Almacen({
       return
     }
 
+    // Calcular stock total si es producto cerrado
+    let stockTotal = formularioProducto.stock || 0
+    if (formularioProducto.esCerrado) {
+      const stockCaja = formularioProducto.stockCaja || 0
+      const stockUnidad = formularioProducto.stockUnidad || 0
+      const unidadesPorCaja = formularioProducto.unidadesPorCaja || 20
+      stockTotal = (stockCaja * unidadesPorCaja) + stockUnidad
+    }
+
     const productoActualizado: Producto = {
       ...formularioProducto as Producto,
+      stock: stockTotal,
       preciosPorSubcategoria: Object.keys(preciosSubcategoria).length > 0 ? preciosSubcategoria : undefined
     }
 
@@ -68,7 +80,14 @@ export default function Almacen({
       precio: 0,
       categoria: '',
       subcategoria: '',
-      stock: 0
+      stock: 0,
+      codigoBarras: '',
+      fechaVencimiento: undefined,
+      esCerrado: false,
+      unidadesPorCaja: undefined,
+      stockCaja: undefined,
+      stockUnidad: undefined,
+      precioUnidad: undefined
     })
     setMostrarFormulario(true)
   }
@@ -79,19 +98,45 @@ export default function Almacen({
       return
     }
 
+    // Calcular stock total si es producto cerrado
+    let stockTotal = formularioProducto.stock || 0
+    if (formularioProducto.esCerrado) {
+      const stockCaja = formularioProducto.stockCaja || 0
+      const stockUnidad = formularioProducto.stockUnidad || 0
+      const unidadesPorCaja = formularioProducto.unidadesPorCaja || 20
+      stockTotal = (stockCaja * unidadesPorCaja) + stockUnidad
+    }
+
     const nuevoProducto: Producto = {
       id: Date.now().toString(),
       nombre: formularioProducto.nombre,
       precio: formularioProducto.precio || 0,
       categoria: formularioProducto.categoria,
       subcategoria: formularioProducto.subcategoria || undefined,
-      stock: formularioProducto.stock || 0,
-      codigoBarras: formularioProducto.codigoBarras || undefined
+      stock: stockTotal,
+      codigoBarras: formularioProducto.codigoBarras || undefined,
+      esCerrado: formularioProducto.esCerrado || undefined,
+      unidadesPorCaja: formularioProducto.unidadesPorCaja || undefined,
+      stockCaja: formularioProducto.stockCaja || undefined,
+      stockUnidad: formularioProducto.stockUnidad || undefined,
+      precioUnidad: formularioProducto.precioUnidad || undefined
     }
 
     onActualizarProductos([...productos, nuevoProducto])
     setMostrarFormulario(false)
-    setFormularioProducto({ nombre: '', precio: 0, categoria: '', subcategoria: '', stock: 0, codigoBarras: '' })
+    setFormularioProducto({ 
+      nombre: '', 
+      precio: 0, 
+      categoria: '', 
+      subcategoria: '', 
+      stock: 0, 
+      codigoBarras: '',
+      esCerrado: false,
+      unidadesPorCaja: undefined,
+      stockCaja: undefined,
+      stockUnidad: undefined,
+      precioUnidad: undefined
+    })
   }
 
   const eliminarProducto = (id: string) => {
@@ -138,6 +183,15 @@ export default function Almacen({
           </button>
           <button className="btn-agregar" onClick={iniciarNuevoProducto}>
             + Agregar Producto
+          </button>
+          <button className="btn-ingreso" onClick={() => onCambiarVista?.('ingresoMercaderia')}>
+            📥 Ingreso Mercadería
+          </button>
+          <button className="btn-movimientos" onClick={() => onCambiarVista?.('movimientosInventario')}>
+            📊 Movimientos
+          </button>
+          <button className="btn-vencimientos" onClick={() => onCambiarVista?.('vencimientos')}>
+            ⏰ Vencimientos
           </button>
           <button className="btn-volver" onClick={onVolver}>
             ← Volver a Venta
@@ -236,6 +290,121 @@ export default function Almacen({
                   placeholder="Ej: 7891234567890"
                 />
               </div>
+              <div className="form-group">
+                <label>Fecha de Vencimiento (Opcional)</label>
+                <input
+                  type="date"
+                  value={formularioProducto.fechaVencimiento ? new Date(formularioProducto.fechaVencimiento).toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    const fecha = e.target.value ? new Date(e.target.value) : undefined
+                    setFormularioProducto({ ...formularioProducto, fechaVencimiento: fecha })
+                  }}
+                />
+              </div>
+              
+              {/* Producto cerrado (cajas/unidades) */}
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={formularioProducto.esCerrado || false}
+                    onChange={(e) => {
+                      const esCerrado = e.target.checked
+                      setFormularioProducto({
+                        ...formularioProducto,
+                        esCerrado,
+                        unidadesPorCaja: esCerrado ? (formularioProducto.unidadesPorCaja || 20) : undefined,
+                        stockCaja: esCerrado ? (formularioProducto.stockCaja || 0) : undefined,
+                        stockUnidad: esCerrado ? (formularioProducto.stockUnidad || 0) : undefined,
+                        precioUnidad: esCerrado ? (formularioProducto.precioUnidad || formularioProducto.precio) : undefined,
+                        stock: esCerrado ? (
+                          ((formularioProducto.stockCaja || 0) * (formularioProducto.unidadesPorCaja || 20)) + (formularioProducto.stockUnidad || 0)
+                        ) : formularioProducto.stock
+                      })
+                    }}
+                  />
+                  <span>Producto cerrado (se vende en cajas y unidades, ej: cigarros)</span>
+                </label>
+              </div>
+              
+              {formularioProducto.esCerrado && (
+                <>
+                  <div className="form-group">
+                    <label>Unidades por Caja</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formularioProducto.unidadesPorCaja || ''}
+                      onChange={(e) => {
+                        const unidadesPorCaja = parseInt(e.target.value) || 0
+                        const stockCaja = formularioProducto.stockCaja || 0
+                        const stockUnidad = formularioProducto.stockUnidad || 0
+                        const stockTotal = (stockCaja * unidadesPorCaja) + stockUnidad
+                        setFormularioProducto({
+                          ...formularioProducto,
+                          unidadesPorCaja,
+                          stock: stockTotal
+                        })
+                      }}
+                      placeholder="20"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Stock en Cajas</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formularioProducto.stockCaja || ''}
+                      onChange={(e) => {
+                        const stockCaja = parseInt(e.target.value) || 0
+                        const unidadesPorCaja = formularioProducto.unidadesPorCaja || 20
+                        const stockUnidad = formularioProducto.stockUnidad || 0
+                        const stockTotal = (stockCaja * unidadesPorCaja) + stockUnidad
+                        setFormularioProducto({
+                          ...formularioProducto,
+                          stockCaja,
+                          stock: stockTotal
+                        })
+                      }}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Stock en Unidades</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formularioProducto.stockUnidad || ''}
+                      onChange={(e) => {
+                        const stockUnidad = parseInt(e.target.value) || 0
+                        const unidadesPorCaja = formularioProducto.unidadesPorCaja || 20
+                        const stockCaja = formularioProducto.stockCaja || 0
+                        const stockTotal = (stockCaja * unidadesPorCaja) + stockUnidad
+                        setFormularioProducto({
+                          ...formularioProducto,
+                          stockUnidad,
+                          stock: stockTotal
+                        })
+                      }}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Precio por Unidad (S/)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formularioProducto.precioUnidad || formularioProducto.precio || ''}
+                      onChange={(e) => setFormularioProducto({ ...formularioProducto, precioUnidad: parseFloat(e.target.value) || 0 })}
+                      placeholder="0.00"
+                    />
+                    <small style={{ color: '#6b7280', fontSize: '0.75rem' }}>
+                      Precio base ({formularioProducto.precio || 0}) es el precio por caja
+                    </small>
+                  </div>
+                </>
+              )}
             </div>
             <div className="form-actions">
               <button className="btn-guardar" onClick={guardarNuevoProducto}>
@@ -252,22 +421,42 @@ export default function Almacen({
           <h2>Inventario</h2>
           <div className="productos-table">
             <div className="table-header">
-              <div className="col-nombre">Producto</div>
+              <div className="col-nombre-vencimiento">
+                <div>Producto</div>
+                <div className="header-subtitle">Vencimiento</div>
+              </div>
+              <div className="col-acciones">Acciones</div>
               <div className="col-categoria">Categoría</div>
               <div className="col-stock">Stock</div>
               <div className="col-precio">Precio</div>
               <div className="col-codigo-barras">Código Barras</div>
-              <div className="col-acciones">Acciones</div>
             </div>
             {productos.map(producto => (
               editandoId === producto.id ? (
                 <div key={producto.id} className="table-row edicion">
-                  <div className="col-nombre">
+                  <div className="col-nombre-vencimiento">
                     <input
                       type="text"
                       value={formularioProducto.nombre || ''}
                       onChange={(e) => setFormularioProducto({ ...formularioProducto, nombre: e.target.value })}
+                      style={{ marginBottom: '0.25rem' }}
                     />
+                    <input
+                      type="date"
+                      value={formularioProducto.fechaVencimiento ? new Date(formularioProducto.fechaVencimiento).toISOString().split('T')[0] : ''}
+                      onChange={(e) => {
+                        const fecha = e.target.value ? new Date(e.target.value) : undefined
+                        setFormularioProducto({ ...formularioProducto, fechaVencimiento: fecha })
+                      }}
+                    />
+                  </div>
+                  <div className="col-acciones">
+                    <button className="btn-icon guardar" onClick={guardarEdicion} title="Guardar">
+                      ✓
+                    </button>
+                    <button className="btn-icon cancelar" onClick={cancelarEdicion} title="Cancelar">
+                      ×
+                    </button>
                   </div>
                   <div className="col-categoria">
                     <select
@@ -361,39 +550,25 @@ export default function Almacen({
                       placeholder="Código de barras"
                     />
                   </div>
-                  <div className="col-acciones">
-                    <button className="btn-icon guardar" onClick={guardarEdicion} title="Guardar">
-                      ✓
-                    </button>
-                    <button className="btn-icon cancelar" onClick={cancelarEdicion} title="Cancelar">
-                      ×
-                    </button>
-                  </div>
                 </div>
               ) : (
                 <div 
                   key={producto.id} 
                   className={`table-row ${producto.stock === 0 ? 'sin-stock' : producto.stock < 10 ? 'stock-bajo' : ''}`}
                 >
-                  <div className="col-nombre">
-                    {producto.nombre}
-                    {producto.subcategoria && (
-                      <span className="subcategoria-badge-table">{producto.subcategoria}</span>
-                    )}
+                  <div className="col-nombre-vencimiento">
+                    <div className="producto-nombre">
+                      {producto.nombre}
+                      {producto.subcategoria && (
+                        <span className="subcategoria-badge-table">{producto.subcategoria}</span>
+                      )}
+                    </div>
+                    <div className="producto-vencimiento">
+                      {producto.fechaVencimiento
+                        ? new Date(producto.fechaVencimiento).toLocaleDateString('es-PE')
+                        : '-'}
+                    </div>
                   </div>
-                  <div className="col-categoria">{producto.categoria}</div>
-                  <div className="col-stock">
-                    <span className={producto.stock === 0 ? 'stock-cero' : producto.stock < 10 ? 'stock-bajo-badge' : ''}>
-                      {producto.stock}
-                    </span>
-                  </div>
-                  <div className="col-precio">
-                    S/ {producto.precio.toFixed(2)}
-                    {producto.preciosPorSubcategoria && Object.keys(producto.preciosPorSubcategoria).length > 0 && (
-                      <span className="tiene-variantes"> (con variantes)</span>
-                    )}
-                  </div>
-                  <div className="col-codigo-barras">{producto.codigoBarras || '-'}</div>
                   <div className="col-acciones">
                     <button className="btn-icon editar" onClick={() => iniciarEdicion(producto)} title="Editar">
                       ✎
@@ -402,6 +577,30 @@ export default function Almacen({
                       🗑
                     </button>
                   </div>
+                  <div className="col-categoria">{producto.categoria}</div>
+                  <div className="col-stock">
+                    {producto.esCerrado && producto.stockCaja !== undefined && producto.stockUnidad !== undefined ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.75rem' }}>
+                        <span className={producto.stock === 0 ? 'stock-cero' : producto.stock < 10 ? 'stock-bajo-badge' : ''}>
+                          Total: {producto.stock}
+                        </span>
+                        <span style={{ color: '#6b7280' }}>
+                          {producto.stockCaja} cajas + {producto.stockUnidad} unidades
+                        </span>
+                      </div>
+                    ) : (
+                      <span className={producto.stock === 0 ? 'stock-cero' : producto.stock < 10 ? 'stock-bajo-badge' : ''}>
+                        {producto.stock}
+                      </span>
+                    )}
+                  </div>
+                  <div className="col-precio">
+                    S/ {producto.precio.toFixed(2)}
+                    {producto.preciosPorSubcategoria && Object.keys(producto.preciosPorSubcategoria).length > 0 && (
+                      <span className="tiene-variantes"> (con variantes)</span>
+                    )}
+                  </div>
+                  <div className="col-codigo-barras">{producto.codigoBarras || '-'}</div>
                 </div>
               )
             ))}

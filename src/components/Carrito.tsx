@@ -6,8 +6,8 @@ import './Carrito.css'
 interface CarritoProps {
   items: ItemCarrito[]
   categorias: Categoria[]
-  onActualizarCantidad: (id: string, cantidad: number, subcategoria?: string) => void
-  onEliminar: (id: string, subcategoria?: string) => void
+  onActualizarCantidad: (id: string, cantidad: number, subcategoria?: string, vendidoEnUnidades?: boolean) => void
+  onEliminar: (id: string, subcategoria?: string, vendidoEnUnidades?: boolean) => void
   onCambiarSubcategoria: (item: ItemCarrito, nuevaSubcategoria: string | null) => void
   onProcesarVenta: () => void
   total: number
@@ -56,7 +56,9 @@ export default function Carrito({
           <div className="carrito-items">
             {items.map((item, index) => {
               const precio = obtenerPrecio(item)
-              const itemKey = `${item.producto.id}-${item.subcategoriaSeleccionada || 'base'}-${index}`
+              const itemKey = `${item.producto.id}-${item.subcategoriaSeleccionada || 'base'}-${item.vendidoEnUnidades ? 'unidades' : 'caja'}-${index}`
+              const esProductoCerrado = item.producto.esCerrado
+              const tipoVenta = esProductoCerrado ? (item.vendidoEnUnidades ? 'unidades' : 'cajas') : null
               
               return (
                 <div key={itemKey} className="carrito-item">
@@ -65,22 +67,29 @@ export default function Carrito({
                     {item.subcategoriaSeleccionada && (
                       <span className="subcategoria-badge-carrito">{item.subcategoriaSeleccionada}</span>
                     )}
+                    {tipoVenta && (
+                      <span className="tipo-venta-badge">
+                        {tipoVenta === 'unidades' ? '📄 Por unidad' : '📦 Por caja'}
+                      </span>
+                    )}
                     <p className="item-precio-unitario">
-                      S/ {precio.toFixed(2)} c/u
+                      S/ {precio.toFixed(2)} {tipoVenta === 'unidades' ? 'c/unidad' : tipoVenta === 'cajas' ? 'c/caja' : 'c/u'}
                     </p>
                   </div>
                   
                   <div className="item-controls">
                     <button
                       className="btn-cantidad"
-                      onClick={() => onActualizarCantidad(item.producto.id, item.cantidad - 1, item.subcategoriaSeleccionada)}
+                      onClick={() => onActualizarCantidad(item.producto.id, item.cantidad - 1, item.subcategoriaSeleccionada, item.vendidoEnUnidades)}
                     >
                       −
                     </button>
-                    <span className="cantidad">{item.cantidad}</span>
+                    <span className="cantidad">
+                      {item.cantidad} {tipoVenta === 'unidades' ? 'unid.' : tipoVenta === 'cajas' ? 'cajas' : ''}
+                    </span>
                     <button
                       className="btn-cantidad"
-                      onClick={() => onActualizarCantidad(item.producto.id, item.cantidad + 1, item.subcategoriaSeleccionada)}
+                      onClick={() => onActualizarCantidad(item.producto.id, item.cantidad + 1, item.subcategoriaSeleccionada, item.vendidoEnUnidades)}
                     >
                       +
                     </button>
@@ -95,7 +104,7 @@ export default function Carrito({
                     )}
                     <button
                       className="btn-eliminar"
-                      onClick={() => onEliminar(item.producto.id, item.subcategoriaSeleccionada)}
+                      onClick={() => onEliminar(item.producto.id, item.subcategoriaSeleccionada, item.vendidoEnUnidades)}
                     >
                       ×
                     </button>

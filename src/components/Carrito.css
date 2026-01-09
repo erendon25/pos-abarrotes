@@ -150,6 +150,17 @@
   font-weight: 500;
 }
 
+.tipo-venta-badge {
+  display: inline-block;
+  margin-left: 0.375rem;
+  font-size: 0.625rem;
+  padding: 0.125rem 0.375rem;
+  background: #10b981;
+  color: white;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
 .btn-cambiar-variante {
   width: 28px;
   height: 28px;

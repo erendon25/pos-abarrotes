@@ -1,10 +1,17 @@
-import { useState } from 'react'
-import { MetodoPago, Factura } from '../types'
+import { useState, useEffect } from 'react'
+import { MetodoPago, Usuario } from '../types'
 import './ModalPago.css'
 
 interface ModalPagoProps {
   total: number
-  onConfirmar: (metodosPago: MetodoPago[], vuelto: number, factura?: Factura, porcentajeTarjeta?: number) => void
+  onConfirmar: (
+    metodosPago: MetodoPago[], 
+    vuelto: number, 
+    requiereBoleta: boolean,
+    porcentajeBoleta?: number,
+    usuario?: Usuario,
+    porcentajeTarjeta?: number
+  ) => void
   onCancelar: () => void
 }
 
@@ -13,16 +20,34 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
   const [montoEfectivo, setMontoEfectivo] = useState('')
   const [montoYape, setMontoYape] = useState('')
   const [montoTarjeta, setMontoTarjeta] = useState('')
-  const [requiereFactura, setRequiereFactura] = useState(false)
-  const [ruc, setRuc] = useState('')
-  const [razonSocial, setRazonSocial] = useState('')
-  const [porcentajeFactura, setPorcentajeFactura] = useState(() => {
-    return localStorage.getItem('pos_porcentaje_factura') || '18'
+  const [requiereBoleta, setRequiereBoleta] = useState(false)
+  const [porcentajeBoleta, setPorcentajeBoleta] = useState(() => {
+    return localStorage.getItem('pos_porcentaje_boleta') || '18'
   })
   const [aplicarPorcentajeTarjeta, setAplicarPorcentajeTarjeta] = useState(false)
   const [porcentajeTarjeta, setPorcentajeTarjeta] = useState(() => {
     return localStorage.getItem('pos_porcentaje_tarjeta') || '3'
   })
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<string>('')
+
+  useEffect(() => {
+    // Cargar usuarios
+    const usuariosGuardados = localStorage.getItem('pos_usuarios')
+    if (usuariosGuardados) {
+      const usuariosList = JSON.parse(usuariosGuardados)
+      setUsuarios(usuariosList)
+      // Seleccionar el primer usuario por defecto
+      if (usuariosList.length > 0) {
+        setUsuarioSeleccionado(usuariosList[0].id)
+      }
+    } else {
+      // Usuario por defecto si no hay usuarios configurados
+      const usuarioDefault: Usuario = { id: '1', nombre: 'LUIS' }
+      setUsuarios([usuarioDefault])
+      setUsuarioSeleccionado('1')
+    }
+  }, [])
 
   const calcularTotalPagado = () => {
     return metodosPago.reduce((sum, metodo) => sum + metodo.monto, 0)
@@ -31,16 +56,16 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
   const calcularPorcentajeAdicional = () => {
     let adicional = 0
     
-    // Porcentaje por factura (sobre el subtotal)
-    if (requiereFactura && porcentajeFactura) {
-      const porcentaje = parseFloat(porcentajeFactura) || 0
+    // Porcentaje por boleta (sobre el subtotal)
+    if (requiereBoleta && porcentajeBoleta) {
+      const porcentaje = parseFloat(porcentajeBoleta) || 0
       adicional += total * (porcentaje / 100)
     }
     
     return adicional
   }
 
-  const calcularTotalConFactura = () => {
+  const calcularTotalConBoleta = () => {
     return total + calcularPorcentajeAdicional()
   }
 
@@ -48,14 +73,14 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
     if (!aplicarPorcentajeTarjeta || !porcentajeTarjeta) return 0
     
     const porcentaje = parseFloat(porcentajeTarjeta) || 0
-    const totalConFactura = calcularTotalConFactura()
-    return totalConFactura * (porcentaje / 100)
+    const totalConBoleta = calcularTotalConBoleta()
+    return totalConBoleta * (porcentaje / 100)
   }
 
   const calcularTotalConAdicionales = () => {
-    const totalConFactura = calcularTotalConFactura()
+    const totalConBoleta = calcularTotalConBoleta()
     const porcentajeTarjetaAdicional = calcularPorcentajeTarjetaAdicional()
-    return totalConFactura + porcentajeTarjetaAdicional
+    return totalConBoleta + porcentajeTarjetaAdicional
   }
 
   const calcularVuelto = () => {
@@ -100,20 +125,34 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
   const porcentajeAdicional = calcularPorcentajeAdicional()
   const porcentajeTarjetaAdicional = calcularPorcentajeTarjetaAdicional()
 
-  const puedeConfirmar = totalPagado >= totalConAdicionales && 
-    (!requiereFactura || (ruc.trim() && razonSocial.trim()))
+  const puedeConfirmar = totalPagado >= totalConAdicionales
 
   const handleConfirmar = () => {
-    if (puedeConfirmar) {
-      const factura: Factura | undefined = requiereFactura ? {
-        requiereFactura: true,
-        ruc: ruc.trim(),
-        razonSocial: razonSocial.trim(),
-        porcentajeAdicional: parseFloat(porcentajeFactura) || 0
-      } : undefined
-
-      const porcentajeTarjetaNum = aplicarPorcentajeTarjeta ? (parseFloat(porcentajeTarjeta) || 0) : undefined
-      onConfirmar(metodosPago, vuelto, factura, porcentajeTarjetaNum)
+    const porcentajeBoletaNum = requiereBoleta ? (parseFloat(porcentajeBoleta) || 0) : undefined
+    const porcentajeTarjetaNum = aplicarPorcentajeTarjeta ? (parseFloat(porcentajeTarjeta) || 0) : undefined
+    const usuario = usuarios.find(u => u.id === usuarioSeleccionado)
+    
+    // Si no hay ningún monto ingresado, usar efectivo por defecto con el total a pagar
+    let metodosPagoFinal = metodosPago
+    let vueltoFinal = vuelto
+    
+    if (metodosPago.length === 0 || totalPagado === 0) {
+      // Agregar efectivo por defecto con el monto del total
+      metodosPagoFinal = [{ tipo: 'efectivo' as const, monto: totalConAdicionales }]
+      vueltoFinal = 0
+    }
+    
+    const puedeConfirmarFinal = metodosPagoFinal.reduce((sum, metodo) => sum + metodo.monto, 0) >= totalConAdicionales
+    
+    if (puedeConfirmarFinal) {
+      onConfirmar(
+        metodosPagoFinal, 
+        vueltoFinal, 
+        requiereBoleta,
+        porcentajeBoletaNum,
+        usuario,
+        porcentajeTarjetaNum
+      )
     }
   }
 
@@ -126,6 +165,24 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
         </div>
         
         <div className="modal-body-pago">
+          {/* Selector de Usuario */}
+          <div className="usuario-section">
+            <label className="usuario-label">
+              Usuario:
+            </label>
+            <select
+              value={usuarioSeleccionado}
+              onChange={(e) => setUsuarioSeleccionado(e.target.value)}
+              className="usuario-select"
+            >
+              {usuarios.map(usuario => (
+                <option key={usuario.id} value={usuario.id}>
+                  {usuario.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="total-pago">
             <div className="total-info">
               <span className="total-label-pago">Subtotal:</span>
@@ -133,7 +190,7 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
             </div>
             {porcentajeAdicional > 0 && (
               <div className="adicional-info">
-                <span>Adicional por factura ({porcentajeFactura}%):</span>
+                <span>Adicional por boleta ({porcentajeBoleta}%):</span>
                 <span>S/ {porcentajeAdicional.toFixed(2)}</span>
               </div>
             )}
@@ -151,56 +208,36 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
 
           {/* Sección de opciones en dos columnas */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            {/* Checkbox de factura */}
-            <div className="factura-section">
+            {/* Checkbox de boleta */}
+            <div className="boleta-section">
               <label className="checkbox-label">
                 <input
                   type="checkbox"
-                  checked={requiereFactura}
-                  onChange={(e) => setRequiereFactura(e.target.checked)}
+                  checked={requiereBoleta}
+                  onChange={(e) => setRequiereBoleta(e.target.checked)}
                   className="checkbox-input"
                 />
-                <span>Requiere Factura</span>
+                <span>Requiere Boleta</span>
               </label>
               
-              {requiereFactura && (
-                <div className="factura-campos">
+              {requiereBoleta && (
+                <div className="boleta-info">
                   <div className="form-group-factura">
-                    <label>RUC</label>
+                    <label>% Adicional (IGV)</label>
                     <input
-                      type="text"
-                      value={ruc}
-                      onChange={(e) => setRuc(e.target.value)}
-                      placeholder="RUC"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={porcentajeBoleta}
+                      onChange={(e) => setPorcentajeBoleta(e.target.value)}
+                      placeholder="18"
                       className="input-factura"
+                      readOnly
+                      style={{ background: '#f3f4f6', cursor: 'not-allowed' }}
+                      title="Configurado en Configuración"
                     />
+                    <span className="config-hint">Configurado en Configuración</span>
                   </div>
-                  <div className="form-group-factura">
-                    <label>Razón Social</label>
-                    <input
-                      type="text"
-                      value={razonSocial}
-                      onChange={(e) => setRazonSocial(e.target.value)}
-                      placeholder="Razón Social"
-                      className="input-factura"
-                    />
-                  </div>
-                <div className="form-group-factura">
-                  <label>% Adicional (IGV)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={porcentajeFactura}
-                    onChange={(e) => setPorcentajeFactura(e.target.value)}
-                    placeholder="18"
-                    className="input-factura"
-                    readOnly
-                    style={{ background: '#f3f4f6', cursor: 'not-allowed' }}
-                    title="Configurado en Configuración"
-                  />
-                  <span className="config-hint">Configurado en Configuración</span>
-                </div>
                 </div>
               )}
             </div>
@@ -336,9 +373,9 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
             Cancelar
           </button>
           <button 
-            className={`btn-confirmar-pago ${puedeConfirmar ? '' : 'disabled'}`}
+            className={`btn-confirmar-pago ${(puedeConfirmar || metodosPago.length === 0 || totalPagado === 0) ? '' : 'disabled'}`}
             onClick={handleConfirmar}
-            disabled={!puedeConfirmar}
+            disabled={!(puedeConfirmar || metodosPago.length === 0 || totalPagado === 0)}
           >
             Confirmar Pago
           </button>

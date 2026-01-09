@@ -1,0 +1,284 @@
+.vencimientos {
+  min-height: 100vh;
+  background: var(--background);
+  padding: 2rem;
+}
+
+.vencimientos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.vencimientos-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.estadisticas-vencimientos {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid var(--border);
+}
+
+.estadisticas-vencimientos h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.stat-card {
+  padding: 1rem;
+  background: var(--background);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.stat-card.vencidos {
+  border-color: #dc2626;
+  background: #fee2e2;
+}
+
+.stat-card.proximos {
+  border-color: #f59e0b;
+  background: #fef3c7;
+}
+
+.stat-card.vigentes {
+  border-color: #10b981;
+  background: #d1fae5;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.configuracion-vencimientos {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid var(--border);
+}
+
+.configuracion-vencimientos h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.config-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.config-item label {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.input-config {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+  width: 100px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.input-config:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.filtros-vencimientos {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid var(--border);
+}
+
+.filtros-vencimientos h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.filtros-buttons {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filtro-btn {
+  padding: 0.75rem 1.5rem;
+  background: white;
+  color: #16191f;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filtro-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.filtro-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.productos-vencimientos {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+}
+
+.productos-vencimientos h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sin-productos {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.productos-table {
+  overflow-x: auto;
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr 1.5fr 1.5fr 1.5fr;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--background);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr 1.5fr 1.5fr 1.5fr;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--background);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.table-row:hover {
+  background: #f9fafb;
+  border-color: var(--primary);
+}
+
+.table-row.vencido {
+  background: #fee2e2;
+  border-color: #dc2626;
+}
+
+.table-row.proximo {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+.col-producto,
+.col-categoria,
+.col-stock,
+.col-fecha-vencimiento,
+.col-dias-restantes,
+.col-estado {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.col-dias-restantes.vencido {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.col-dias-restantes.proximo {
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+.col-dias-restantes.vigente {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.estado-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1024px) {
+  .table-header,
+  .table-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .table-header > div,
+  .table-row > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+

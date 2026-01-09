@@ -1,0 +1,325 @@
+.registro-ventas {
+  min-height: 100vh;
+  background: var(--background);
+  padding: 2rem;
+}
+
+.registro-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.registro-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Estadísticas de anulaciones */
+.estadisticas-anulaciones {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.estadisticas-anulaciones h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.stat-card {
+  padding: 1rem;
+  background: var(--background);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.stat-sub {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Filtro de fechas */
+.filtro-fechas {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.filtro-fechas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.filtro-fechas-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.filtro-fechas-campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.filtro-fecha-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filtro-fecha-item label {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.input-fecha {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.input-fecha:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.btn-limpiar-filtro {
+  padding: 0.5rem 1rem;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-limpiar-filtro:hover {
+  background: #fecaca;
+  border-color: #f87171;
+}
+
+/* Lista de ventas */
+.ventas-lista {
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+}
+
+.ventas-lista h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sin-ventas {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.ventas-table {
+  overflow-x: auto;
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: 1.5fr 0.8fr 1fr 1fr 1fr 0.8fr 1.2fr;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--background);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 1.5fr 0.8fr 1fr 1fr 1fr 0.8fr 1.2fr;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--background);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.table-row:hover {
+  background: #f9fafb;
+  border-color: var(--primary);
+}
+
+.table-row.anulada {
+  background: #fee2e2;
+  opacity: 0.7;
+}
+
+.col-fecha,
+.col-tipo,
+.col-numero,
+.col-usuario,
+.col-total,
+.col-reimpresiones,
+.col-acciones {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.col-total {
+  font-weight: 600;
+}
+
+.tipo-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tipo-badge.boleta {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.tipo-badge.ticket {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.anulada-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: #fee2e2;
+  color: #dc2626;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.reimpresiones-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.col-acciones {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-reimprimir,
+.btn-anular {
+  padding: 0.5rem;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.btn-reimprimir:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.btn-reimprimir:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+.btn-anular:hover {
+  background: #fee2e2;
+  border-color: #dc2626;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 1024px) {
+  .table-header,
+  .table-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .table-header > div,
+  .table-row > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table-header > div::before,
+  .table-row > div::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .table-header > div::before {
+    content: '';
+  }
+}
+

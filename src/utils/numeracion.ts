@@ -1,26 +1,26 @@
-// Utilidades para manejar la numeración de boletas y facturas
+// Utilidades para manejar la numeración de tickets y boletas
 
+const STORAGE_KEY_TICKET = 'pos_ticket_numero'
 const STORAGE_KEY_BOLETA = 'pos_boleta_numero'
-const STORAGE_KEY_FACTURA = 'pos_factura_numero'
+const STORAGE_KEY_TICKET_PREFIJO = 'pos_ticket_prefijo'
 const STORAGE_KEY_BOLETA_PREFIJO = 'pos_boleta_prefijo'
-const STORAGE_KEY_FACTURA_PREFIJO = 'pos_factura_prefijo'
 
 interface Numeracion {
   prefijo: string
   numero: number
 }
 
+export function obtenerSiguienteTicket(): string {
+  const numeracion = obtenerNumeracion(STORAGE_KEY_TICKET, STORAGE_KEY_TICKET_PREFIJO, 'T')
+  const siguiente = incrementarNumeracion(numeracion)
+  guardarNumeracion(STORAGE_KEY_TICKET, STORAGE_KEY_TICKET_PREFIJO, siguiente)
+  return formatearNumero(siguiente)
+}
+
 export function obtenerSiguienteBoleta(): string {
   const numeracion = obtenerNumeracion(STORAGE_KEY_BOLETA, STORAGE_KEY_BOLETA_PREFIJO, 'B')
   const siguiente = incrementarNumeracion(numeracion)
   guardarNumeracion(STORAGE_KEY_BOLETA, STORAGE_KEY_BOLETA_PREFIJO, siguiente)
-  return formatearNumero(siguiente)
-}
-
-export function obtenerSiguienteFactura(): string {
-  const numeracion = obtenerNumeracion(STORAGE_KEY_FACTURA, STORAGE_KEY_FACTURA_PREFIJO, 'F')
-  const siguiente = incrementarNumeracion(numeracion)
-  guardarNumeracion(STORAGE_KEY_FACTURA, STORAGE_KEY_FACTURA_PREFIJO, siguiente)
   return formatearNumero(siguiente)
 }
 
@@ -40,8 +40,10 @@ function obtenerNumeracion(
   }
   
   // Inicializar con valores por defecto
+  // Para tickets: prefijo "BOL", para boletas: prefijo "BOL"
+  const prefijoInicial = prefijoDefault === 'T' ? 'BOL' : prefijoDefault === 'B' ? 'BOL' : prefijoDefault + '001'
   return {
-    prefijo: prefijoDefault + '001',
+    prefijo: prefijoInicial,
     numero: 0
   }
 }
@@ -72,6 +74,7 @@ function guardarNumeracion(
 }
 
 function formatearNumero(numeracion: Numeracion): string {
-  return `${numeracion.prefijo}-${numeracion.numero.toString().padStart(6, '0')}`
+  // Formato: BOL1938 (prefijo + número sin guión)
+  return `${numeracion.prefijo}${numeracion.numero.toString().padStart(4, '0')}`
 }
 

@@ -30,7 +30,9 @@
 
 .btn-almacen,
 .btn-reportes,
-.btn-configuracion {
+.btn-configuracion,
+.btn-registro-ventas,
+.btn-vencimientos-alerta {
   padding: 0.75rem 1.5rem;
   background: white;
   color: #16191f;
@@ -48,7 +50,9 @@
 
 .btn-reportes:hover,
 .btn-almacen:hover,
-.btn-configuracion:hover {
+.btn-configuracion:hover,
+.btn-registro-ventas:hover,
+.btn-vencimientos-alerta:hover {
   background: #f9fafb;
   border-color: #9ca3af;
   color: #111827;
@@ -60,11 +64,30 @@
 
 .btn-almacen:active,
 .btn-reportes:active,
-.btn-configuracion:active {
+.btn-configuracion:active,
+.btn-registro-ventas:active,
+.btn-vencimientos-alerta:active {
   background: #f3f4f6;
   border-color: #6b7280;
   transform: translateY(0);
   box-shadow: 0 0 10px rgba(37, 99, 235, 0.2);
+}
+
+.btn-vencimientos-alerta {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+  font-weight: 600;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 
 .subtitle {

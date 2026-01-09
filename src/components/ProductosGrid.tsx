@@ -34,20 +34,21 @@ export default function ProductosGrid({ productos, onAgregar }: ProductosGridPro
       producto.nombre.toLowerCase().includes(busqueda) ||
       producto.categoria.toLowerCase().includes(busqueda) ||
       (producto.subcategoria && producto.subcategoria.toLowerCase().includes(busqueda)) ||
-      (producto.codigoBarras && producto.codigoBarras.toLowerCase().includes(busqueda))
+      (producto.codigoBarras && producto.codigoBarras.toLowerCase().includes(busqueda)) ||
+      (producto.codigoBarras && producto.codigoBarras === filtro.trim()) // Búsqueda exacta por código de barras
     )
   })
 
   return (
     <div className="productos-container">
       <div className="filtro-container">
-        <input
-          type="text"
-          className="filtro-input"
-          placeholder="Buscar productos por nombre, categoría o subcategoría..."
-          value={filtro}
-          onChange={(e) => setFiltro(e.target.value)}
-        />
+          <input
+            type="text"
+            className="filtro-input"
+            placeholder="Buscar por nombre, categoría, subcategoría o código de barras..."
+            value={filtro}
+            onChange={(e) => setFiltro(e.target.value)}
+          />
         {filtro && (
           <button 
             className="btn-limpiar-filtro"

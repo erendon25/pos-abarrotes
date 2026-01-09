@@ -1,4 +1,4 @@
-import { Venta, ItemCarrito } from '../types'
+import { Venta, ItemCarrito, ConfiguracionEmpresa } from '../types'
 import jsPDF from 'jspdf'
 import './Comprobante.css'
 
@@ -15,22 +15,51 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
     return item.producto.precio
   }
 
-  const esFactura = !!venta.factura
-  const numeroComprobante = esFactura ? venta.numeroFactura : venta.numeroBoleta
-  const tipoComprobante = esFactura ? 'FACTURA' : 'BOLETA DE VENTA'
+  // Obtener datos de empresa desde localStorage
+  const obtenerEmpresa = (): ConfiguracionEmpresa => {
+    const empresaGuardada = localStorage.getItem('pos_empresa')
+    if (empresaGuardada) {
+      return JSON.parse(empresaGuardada)
+    }
+    return {
+      nombre: 'MINIMARKET COOL MARKET',
+      ruc: '10444309852',
+      direccion: 'AV. PORONGOCHE 701 - PAUCARPA',
+      telefono: '933424625 / 999999999'
+    }
+  }
+
+  const empresa = obtenerEmpresa()
+  const esBoleta = venta.tipoComprobante === 'boleta'
+  const numeroComprobante = esBoleta ? venta.numeroBoleta : venta.numeroTicket
 
   const formatearFecha = (fecha: Date) => {
     const date = new Date(fecha)
-    return date.toLocaleDateString('es-PE', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    const dia = date.getDate().toString().padStart(2, '0')
+    const mes = (date.getMonth() + 1).toString().padStart(2, '0')
+    const año = date.getFullYear()
+    const horas = date.getHours().toString().padStart(2, '0')
+    const minutos = date.getMinutes().toString().padStart(2, '0')
+    return `${dia}/${mes}/${año} ${horas}:${minutos}`
+  }
+
+  const obtenerMetodosPagoTexto = (): string => {
+    const metodos = venta.metodosPago.map(m => {
+      if (m.tipo === 'efectivo') return 'Soles'
+      if (m.tipo === 'yape') return 'Yape'
+      if (m.tipo === 'tarjeta') return 'Tarjeta'
+      return m.tipo
     })
+    return metodos.join('/')
   }
 
   const handleImprimir = () => {
+    // No permitir imprimir si la venta está anulada
+    if (venta.anulada) {
+      alert('No se puede imprimir una venta anulada')
+      return
+    }
+
     // Formato para ticketera (80mm de ancho, papel continuo)
     const doc = new jsPDF({
       orientation: 'portrait',
@@ -38,73 +67,97 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
       format: [80, 297] // Ancho 80mm (ticket estándar), alto variable
     })
 
-    let yPos = 10
+    let yPos = 5
     const pageWidth = 80
-    const margin = 5
+    const margin = 3
     const maxWidth = pageWidth - (margin * 2)
 
-    // Encabezado (centrado para ticketera)
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(0, 0, 0)
-    const tituloWidth = doc.getTextWidth(tipoComprobante)
-    doc.text(tipoComprobante, (pageWidth - tituloWidth) / 2, yPos)
-    yPos += 8
-    
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'normal')
-    const numeroWidth = doc.getTextWidth(`Número: ${numeroComprobante}`)
-    doc.text(`Número: ${numeroComprobante}`, (pageWidth - numeroWidth) / 2, yPos)
-    yPos += 6
-    
-    const fechaTexto = formatearFecha(venta.fecha)
-    const fechaWidth = doc.getTextWidth(`Fecha: ${fechaTexto}`)
-    doc.text(`Fecha: ${fechaTexto}`, (pageWidth - fechaWidth) / 2, yPos)
-    yPos += 8
-    
-    // Línea separadora
-    doc.setDrawColor(0, 0, 0)
-    doc.line(margin, yPos, pageWidth - margin, yPos)
-    yPos += 5
-
-    // Datos del cliente (solo para factura)
-    if (esFactura && venta.factura) {
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Datos del Cliente', margin, yPos)
-      yPos += 6
-
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'normal')
-      const rucLines = doc.splitTextToSize(`RUC: ${venta.factura.ruc}`, maxWidth)
-      doc.text(rucLines, margin, yPos)
-      yPos += 5
-      
-      const razonLines = doc.splitTextToSize(`Razón Social: ${venta.factura.razonSocial}`, maxWidth)
-      doc.text(razonLines, margin, yPos)
-      yPos += razonLines.length * 5 + 5
-      
-      doc.line(margin, yPos, pageWidth - margin, yPos)
-      yPos += 5
-    }
-
-    // Detalle de productos
+    // Encabezado - Nombre de la empresa (centrado)
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
-    doc.text('Detalle de Productos', margin, yPos)
-    yPos += 6
-    
-    doc.line(margin, yPos, pageWidth - margin, yPos)
+    doc.setTextColor(0, 0, 0)
+    const nombreWidth = doc.getTextWidth(empresa.nombre)
+    doc.text(empresa.nombre, (pageWidth - nombreWidth) / 2, yPos)
+    yPos += 4
+
+    // RUC
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'normal')
+    const rucWidth = doc.getTextWidth(`RUC: ${empresa.ruc}`)
+    doc.text(`RUC: ${empresa.ruc}`, (pageWidth - rucWidth) / 2, yPos)
+    yPos += 3
+
+    // Dirección
+    const direccionLines = doc.splitTextToSize(empresa.direccion, maxWidth)
+    direccionLines.forEach((line: string) => {
+      const lineWidth = doc.getTextWidth(line)
+      doc.text(line, (pageWidth - lineWidth) / 2, yPos)
+      yPos += 3
+    })
+
+    // Teléfono
+    const telefonoWidth = doc.getTextWidth(empresa.telefono)
+    doc.text(empresa.telefono, (pageWidth - telefonoWidth) / 2, yPos)
     yPos += 5
 
-    // Productos (formato vertical para ticketera)
-    doc.setFont('helvetica', 'normal')
+    // BOLETA/TICKET
     doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    const tipoTexto = esBoleta ? `BOLETA: ${numeroComprobante}` : `TICKET: ${numeroComprobante}`
+    const tipoWidth = doc.getTextWidth(tipoTexto)
+    doc.text(tipoTexto, (pageWidth - tipoWidth) / 2, yPos)
+    yPos += 4
+
+    // PAGO CON
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'normal')
+    const pagoTexto = `PAGO CON: ${obtenerMetodosPagoTexto()}`
+    const pagoWidth = doc.getTextWidth(pagoTexto)
+    doc.text(pagoTexto, (pageWidth - pagoWidth) / 2, yPos)
+    yPos += 3
+
+    // FECHA
+    const fechaTexto = formatearFecha(venta.fecha)
+    const fechaTextoFormato = `FECHA: ${fechaTexto}`
+    const fechaWidth = doc.getTextWidth(fechaTextoFormato)
+    doc.text(fechaTextoFormato, (pageWidth - fechaWidth) / 2, yPos)
+    yPos += 3
+
+    // FACTURADO POR
+    const usuarioNombre = venta.usuario?.nombre || 'SIN USUARIO'
+    const usuarioTexto = `FACTURADO POR: ${usuarioNombre}`
+    const usuarioWidth = doc.getTextWidth(usuarioTexto)
+    doc.text(usuarioTexto, (pageWidth - usuarioWidth) / 2, yPos)
+    yPos += 5
+
+    // Línea separadora (barra azul oscura simulada)
+    doc.setDrawColor(0, 0, 139) // Azul oscuro
+    doc.setLineWidth(0.5)
+    doc.line(margin, yPos, pageWidth - margin, yPos)
+    yPos += 3
+
+    // Encabezado de tabla - Barra azul oscura
+    doc.setFillColor(0, 0, 139) // Azul oscuro
+    doc.rect(margin, yPos - 2, pageWidth - (margin * 2), 5, 'F')
+    doc.setTextColor(255, 255, 255) // Texto blanco
+    
+    doc.setFontSize(6)
+    doc.setFont('helvetica', 'bold')
+    doc.text('PRODUCTO', margin + 1, yPos)
+    doc.text('CANT', margin + 32, yPos)
+    doc.text('PRECIO', margin + 43, yPos)
+    doc.text('TOTAL', margin + 60, yPos)
+    
+    doc.setTextColor(0, 0, 0) // Volver a texto negro
+    yPos += 6
+
+    // Productos
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'normal')
     venta.items.forEach((item) => {
-      // Verificar si necesitamos nueva página
       if (yPos > 280) {
         doc.addPage()
-        yPos = 10
+        yPos = 5
       }
 
       const precio = obtenerPrecio(item)
@@ -115,112 +168,73 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
         nombreProducto += ` (${item.subcategoriaSeleccionada})`
       }
 
-      // Nombre del producto
-      const nombreLines = doc.splitTextToSize(nombreProducto, maxWidth)
-      doc.text(nombreLines, margin, yPos)
-      yPos += nombreLines.length * 4
+      // Nombre del producto (puede ser multilínea)
+      const nombreLines = doc.splitTextToSize(nombreProducto, 28)
+      nombreLines.forEach((line: string, index: number) => {
+        doc.text(line, margin, yPos)
+        if (index === nombreLines.length - 1) {
+          // En la última línea, poner cantidad, precio y total
+          doc.text(item.cantidad.toString(), margin + 32, yPos)
+          doc.text(`S/${precio.toFixed(2)}`, margin + 43, yPos)
+          doc.text(`S/${total.toFixed(2)}`, margin + 60, yPos)
+        }
+        yPos += 3
+      })
       
-      // Cantidad, precio y total en una línea
-      doc.text(`${item.cantidad} x S/ ${precio.toFixed(2)} = S/ ${total.toFixed(2)}`, margin, yPos)
-      yPos += 6
-    })
-
-    yPos += 5
-    doc.setDrawColor(0, 0, 0)
-    doc.line(margin, yPos, pageWidth - margin, yPos)
-    yPos += 6
-
-    // Totales (alineados a la derecha)
-    doc.setFontSize(9)
-    if (esFactura && venta.factura) {
-      // Para factura: Precio Neto, IGV, Total
-      const porcentajeIGV = 18
-      const totalConAdicionales = venta.total
-      const precioNeto = totalConAdicionales / (1 + porcentajeIGV / 100)
-      const igv = totalConAdicionales - precioNeto
-
-      doc.setFont('helvetica', 'normal')
-      const precioNetoText = `Precio Neto: S/ ${precioNeto.toFixed(2)}`
-      const precioNetoWidth = doc.getTextWidth(precioNetoText)
-      doc.text(precioNetoText, pageWidth - margin - precioNetoWidth, yPos)
-      yPos += 6
-
-      const igvText = `IGV (18%): S/ ${igv.toFixed(2)}`
-      const igvWidth = doc.getTextWidth(igvText)
-      doc.text(igvText, pageWidth - margin - igvWidth, yPos)
-      yPos += 6
-
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
-      const totalText = `TOTAL: S/ ${totalConAdicionales.toFixed(2)}`
-      const totalWidth = doc.getTextWidth(totalText)
-      doc.text(totalText, pageWidth - margin - totalWidth, yPos)
-    } else {
-      // Para boleta: Subtotal y Total
-      const subtotal = venta.items.reduce((sum, item) => {
-        const precio = obtenerPrecio(item)
-        return sum + (precio * item.cantidad)
-      }, 0)
-
-      doc.setFont('helvetica', 'normal')
-      const subtotalText = `Subtotal: S/ ${subtotal.toFixed(2)}`
-      const subtotalWidth = doc.getTextWidth(subtotalText)
-      doc.text(subtotalText, pageWidth - margin - subtotalWidth, yPos)
-      yPos += 6
-
-      if (venta.porcentajeTarjeta) {
-        const adicionalTarjeta = venta.total - subtotal
-        const adicionalText = `Adicional tarjeta: S/ ${adicionalTarjeta.toFixed(2)}`
-        const adicionalLines = doc.splitTextToSize(adicionalText, maxWidth)
-        doc.text(adicionalLines, margin, yPos)
-        yPos += adicionalLines.length * 5
+      if (nombreLines.length === 1) {
+        yPos += 2
       }
-
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
-      const totalText = `TOTAL: S/ ${venta.total.toFixed(2)}`
-      const totalWidth = doc.getTextWidth(totalText)
-      doc.text(totalText, pageWidth - margin - totalWidth, yPos)
-    }
-
-    yPos += 10
-    doc.line(margin, yPos, pageWidth - margin, yPos)
-    yPos += 6
-
-    // Forma de pago
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.text('Forma de Pago', margin, yPos)
-    yPos += 6
-
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'normal')
-    venta.metodosPago.forEach((metodo) => {
-      const metodoTexto = metodo.tipo === 'efectivo' ? 'Efectivo' :
-                          metodo.tipo === 'yape' ? 'Yape' :
-                          'Tarjeta'
-      const metodoText = `${metodoTexto}: S/ ${metodo.monto.toFixed(2)}`
-      const metodoWidth = doc.getTextWidth(metodoText)
-      doc.text(metodoText, pageWidth - margin - metodoWidth, yPos)
-      yPos += 5
     })
 
-    if (venta.vuelto && venta.vuelto > 0) {
-      yPos += 3
-      doc.setFont('helvetica', 'bold')
-      const vueltoText = `Vuelto: S/ ${venta.vuelto.toFixed(2)}`
-      const vueltoWidth = doc.getTextWidth(vueltoText)
-      doc.text(vueltoText, pageWidth - margin - vueltoWidth, yPos)
-    }
+    yPos += 3
 
-    yPos += 10
-    doc.line(margin, yPos, pageWidth - margin, yPos)
-    yPos += 8
-    
-    // Pie de página
+    // TOTAL
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    const totalTexto = `TOTAL: S/${venta.total.toFixed(2)}`
+    const totalWidth = doc.getTextWidth(totalTexto)
+    doc.text(totalTexto, pageWidth - margin - totalWidth, yPos)
+    yPos += 5
+
+    // Línea punteada separadora
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.2)
+    // Simular línea punteada
+    for (let x = margin; x < pageWidth - margin; x += 2) {
+      doc.line(x, yPos, x + 1, yPos)
+    }
+    yPos += 4
+
+    // PAGO
     doc.setFontSize(7)
     doc.setFont('helvetica', 'normal')
-    doc.text('Gracias por su compra', (pageWidth - doc.getTextWidth('Gracias por su compra')) / 2, yPos)
+    const pagoMonto = venta.metodosPago.reduce((sum, m) => sum + m.monto, 0)
+    const pagoMontoTexto = `PAGO: S/${pagoMonto.toFixed(2)}`
+    const pagoMontoWidth = doc.getTextWidth(pagoMontoTexto)
+    doc.text(pagoMontoTexto, pageWidth - margin - pagoMontoWidth, yPos)
+    yPos += 4
+
+    // VUELTO
+    if (venta.vuelto && venta.vuelto > 0) {
+      const vueltoTexto = `VUELTO: S/${venta.vuelto.toFixed(2)}`
+      const vueltoWidth = doc.getTextWidth(vueltoTexto)
+      doc.text(vueltoTexto, pageWidth - margin - vueltoWidth, yPos)
+      yPos += 4
+    } else {
+      const vueltoTexto = `VUELTO: S/0.00`
+      const vueltoWidth = doc.getTextWidth(vueltoTexto)
+      doc.text(vueltoTexto, pageWidth - margin - vueltoWidth, yPos)
+      yPos += 4
+    }
+
+    yPos += 5
+
+    // Pie de página
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    const graciasTexto = '¡ GRACIAS POR SU COMPRA !'
+    const graciasWidth = doc.getTextWidth(graciasTexto)
+    doc.text(graciasTexto, (pageWidth - graciasWidth) / 2, yPos)
 
     // Abrir en nueva ventana para imprimir
     const pdfBlob = doc.output('blob')
@@ -231,7 +245,6 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
       printWindow.onload = () => {
         setTimeout(() => {
           printWindow.print()
-          // Cerrar la ventana después de un tiempo
           setTimeout(() => {
             printWindow.close()
             URL.revokeObjectURL(pdfUrl)
@@ -248,9 +261,14 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
     <div className="modal-overlay" onClick={onCerrar}>
       <div className="comprobante-container" onClick={(e) => e.stopPropagation()}>
         <div className="comprobante-header">
-          <h2>{tipoComprobante}</h2>
+          <h2>{esBoleta ? 'BOLETA' : 'TICKET'}</h2>
           <div className="comprobante-acciones">
-            <button className="btn-imprimir" onClick={handleImprimir}>
+            <button 
+              className={`btn-imprimir ${venta.anulada ? 'disabled' : ''}`}
+              onClick={handleImprimir}
+              disabled={venta.anulada}
+              title={venta.anulada ? "No se puede imprimir una venta anulada" : "Imprimir PDF"}
+            >
               🖨️ Imprimir PDF
             </button>
             <button className="btn-cerrar" onClick={onCerrar}>×</button>
@@ -258,148 +276,105 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
         </div>
 
         <div className="comprobante-body">
-          <div className="comprobante-info">
-            <div className="comprobante-numero">
-              <span className="label">Número:</span>
-              <span className="valor">{numeroComprobante}</span>
-            </div>
-            <div className="comprobante-fecha">
-              <span className="label">Fecha:</span>
-              <span className="valor">{formatearFecha(venta.fecha)}</span>
+          {/* Encabezado de empresa */}
+          <div className="comprobante-empresa">
+            <h1 className="empresa-nombre">{empresa.nombre}</h1>
+            <div className="empresa-datos">
+              <div>RUC: {empresa.ruc}</div>
+              <div>{empresa.direccion}</div>
+              <div>{empresa.telefono}</div>
             </div>
           </div>
 
-          {esFactura && venta.factura && (
-            <div className="comprobante-cliente">
-              <h3>Datos del Cliente</h3>
-              <div className="cliente-info">
-                <div>
-                  <span className="label">RUC:</span>
-                  <span className="valor">{venta.factura.ruc}</span>
-                </div>
-                <div>
-                  <span className="label">Razón Social:</span>
-                  <span className="valor">{venta.factura.razonSocial}</span>
-                </div>
-              </div>
+          {/* Información del comprobante */}
+          <div className="comprobante-info-ticket">
+            <div className="info-line">
+              <span className="info-label">{esBoleta ? 'BOLETA' : 'TICKET'}:</span>
+              <span className="info-value">{numeroComprobante}</span>
             </div>
-          )}
+            <div className="info-line">
+              <span className="info-label">PAGO CON:</span>
+              <span className="info-value">{obtenerMetodosPagoTexto()}</span>
+            </div>
+            <div className="info-line">
+              <span className="info-label">FECHA:</span>
+              <span className="info-value">{formatearFecha(venta.fecha)}</span>
+            </div>
+            <div className="info-line">
+              <span className="info-label">FACTURADO POR:</span>
+              <span className="info-value">{venta.usuario?.nombre || 'SIN USUARIO'}</span>
+            </div>
+          </div>
 
+          {/* Tabla de productos */}
           <div className="comprobante-detalle">
-            <h3>Detalle de Productos</h3>
-            <table className="tabla-detalle">
+            <table className="tabla-detalle-ticket">
               <thead>
                 <tr>
-                  <th>Producto</th>
-                  <th>Cantidad</th>
-                  <th>Precio Unit.</th>
-                  <th>Total</th>
+                  <th>PRODUCTO</th>
+                  <th>CANT</th>
+                  <th>PRECIO</th>
+                  <th>TOTAL</th>
                 </tr>
               </thead>
               <tbody>
-                {venta.items.map((item, index) => {
-                  const precio = obtenerPrecio(item)
-                  const total = precio * item.cantidad
-                  return (
-                    <tr key={index}>
-                      <td>
-                        {item.producto.nombre}
-                        {item.subcategoriaSeleccionada && (
-                          <span className="subcategoria-badge-comprobante">
-                            {item.subcategoriaSeleccionada}
-                          </span>
-                        )}
-                      </td>
-                      <td className="text-center">{item.cantidad}</td>
-                      <td className="text-right">S/ {precio.toFixed(2)}</td>
-                      <td className="text-right">S/ {total.toFixed(2)}</td>
-                    </tr>
-                  )
-                })}
+                {venta.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: 'center', padding: '1rem' }}>
+                      No hay productos
+                    </td>
+                  </tr>
+                ) : (
+                  venta.items.map((item, index) => {
+                    const precio = obtenerPrecio(item)
+                    const total = precio * item.cantidad
+                    return (
+                      <tr key={index}>
+                        <td>
+                          {item.producto.nombre}
+                          {item.subcategoriaSeleccionada && (
+                            <span className="subcategoria-badge-comprobante">
+                              {item.subcategoriaSeleccionada}
+                            </span>
+                          )}
+                        </td>
+                        <td className="text-center">{item.cantidad}</td>
+                        <td className="text-right">S/ {precio.toFixed(2)}</td>
+                        <td className="text-right">S/ {total.toFixed(2)}</td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
           </div>
 
-          <div className="comprobante-totales">
-            {esFactura && venta.factura ? (
-              <>
-                {/* Para factura: desglosar en precio neto e IGV */}
-                {(() => {
-                  // El IGV siempre es 18% en Perú
-                  const porcentajeIGV = 18
-                  // El total ya incluye todos los adicionales (porcentaje interno + tarjeta si aplica)
-                  const totalConAdicionales = venta.total
-                  
-                  // Precio neto = Total / (1 + IGV/100)
-                  // El IGV siempre es 18%
-                  const precioNeto = totalConAdicionales / (1 + porcentajeIGV / 100)
-                  const igv = totalConAdicionales - precioNeto
-                  
-                  return (
-                    <>
-                      <div className="total-line">
-                        <span>Precio Neto:</span>
-                        <span>S/ {precioNeto.toFixed(2)}</span>
-                      </div>
-                      <div className="total-line">
-                        <span>IGV (18%):</span>
-                        <span>S/ {igv.toFixed(2)}</span>
-                      </div>
-                      <div className="total-line total-final">
-                        <span>Total:</span>
-                        <span>S/ {totalConAdicionales.toFixed(2)}</span>
-                      </div>
-                    </>
-                  )
-                })()}
-              </>
-            ) : (
-              <>
-                {/* Para boleta: mostrar subtotal y total */}
-                <div className="total-line">
-                  <span>Subtotal:</span>
-                  <span>S/ {venta.items.reduce((sum, item) => {
-                    const precio = obtenerPrecio(item)
-                    return sum + (precio * item.cantidad)
-                  }, 0).toFixed(2)}</span>
-                </div>
-                {venta.porcentajeTarjeta && (
-                  <div className="total-line">
-                    <span>Adicional por tarjeta ({venta.porcentajeTarjeta}%):</span>
-                    <span>S/ {(venta.total - venta.items.reduce((sum, item) => {
-                      const precio = obtenerPrecio(item)
-                      return sum + (precio * item.cantidad)
-                    }, 0)).toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="total-line total-final">
-                  <span>Total:</span>
-                  <span>S/ {venta.total.toFixed(2)}</span>
-                </div>
-              </>
-            )}
+          {/* Total */}
+          <div className="comprobante-total">
+            <div className="total-line-ticket">
+              <span>TOTAL:</span>
+              <span>S/ {venta.total.toFixed(2)}</span>
+            </div>
           </div>
 
-          <div className="comprobante-pago">
-            <h3>Forma de Pago</h3>
-            <div className="metodos-pago-comprobante">
-              {venta.metodosPago.map((metodo, index) => (
-                <div key={index} className="metodo-pago-comprobante">
-                  <span className="metodo-tipo">
-                    {metodo.tipo === 'efectivo' && '💵 Efectivo'}
-                    {metodo.tipo === 'yape' && '📱 Yape'}
-                    {metodo.tipo === 'tarjeta' && '💳 Tarjeta'}
-                  </span>
-                  <span className="metodo-monto">S/ {metodo.monto.toFixed(2)}</span>
-                </div>
-              ))}
+          {/* Línea punteada separadora */}
+          <div className="linea-separadora"></div>
+
+          {/* Resumen de pago */}
+          <div className="comprobante-resumen-pago">
+            <div className="resumen-line">
+              <span>PAGO:</span>
+              <span>S/ {venta.metodosPago.reduce((sum, m) => sum + m.monto, 0).toFixed(2)}</span>
             </div>
-            {venta.vuelto && venta.vuelto > 0 && (
-              <div className="vuelto-comprobante">
-                <span>Vuelto:</span>
-                <span>S/ {venta.vuelto.toFixed(2)}</span>
-              </div>
-            )}
+            <div className="resumen-line">
+              <span>VUELTO:</span>
+              <span>S/ {(venta.vuelto || 0).toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* Pie de página */}
+          <div className="comprobante-pie">
+            <div className="pie-texto">¡ GRACIAS POR SU COMPRA !</div>
           </div>
         </div>
       </div>
