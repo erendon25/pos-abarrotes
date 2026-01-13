@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import { db } from './firebase'
-import { collection, getDocs, writeBatch, doc, setDoc } from 'firebase/firestore'
+import { collection, getDocs, writeBatch, doc } from 'firebase/firestore'
 import { Producto, ItemCarrito, Venta, Categoria, MetodoPago, Usuario, IngresoMercaderia, MovimientoInventario } from './types'
 import ProductosGrid from './components/ProductosGrid'
 import Carrito from './components/Carrito'
@@ -82,7 +82,6 @@ function App() {
   // Referencias para el manejo de códigos de barras
   const codigoBarrasBuffer = useRef('')
   const tiempoUltimaTecla = useRef(0)
-  const inputFocused = useRef(false)
 
   // Estado del menú lateral
   const [menuAbierto, setMenuAbierto] = useState(false)
@@ -547,29 +546,6 @@ function App() {
     setMostrarModalPago(false)
   }
 
-  // Función auxiliar para subir datos en segundo plano
-  const sincronizarVentaFirebase = async (venta: Venta, productosAfectados: Producto[]) => {
-    try {
-      const batch = writeBatch(db)
-
-      // 1. Guardar la venta
-      const ventaRef = doc(db, 'ventas', venta.id)
-      batch.set(ventaRef, venta)
-
-      // 2. Actualizar stocks
-      productosAfectados.forEach(prod => {
-        const prodRef = doc(db, 'productos', prod.id)
-        batch.set(prodRef, prod, { merge: true })
-      })
-
-      await batch.commit()
-      console.log("☁️ Venta y stock sincronizados con la nube automáticamente.")
-    } catch (error) {
-      console.error("Error al sincronizar venta con Firebase:", error)
-      // Aquí podríamos guardar en una cola de 'pendientes' en localStorage para reintentar luego
-    }
-  }
-
   // Función para registrar ingreso de mercadería
   const registrarIngreso = (ingreso: IngresoMercaderia) => {
     setIngresos(prev => [...prev, ingreso])
@@ -948,10 +924,8 @@ function App() {
     return (
       <Inventario
         productos={productos}
-        categorias={categorias}
         onVolver={() => setVista('venta')}
         onAjustarStock={handleAjustarStock}
-        usuarios={usuarios}
       />
     )
   }

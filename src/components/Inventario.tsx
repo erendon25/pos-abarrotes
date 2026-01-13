@@ -1,19 +1,17 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Producto, Categoria, MovimientoInventario, Usuario } from '../types'
+import { Producto } from '../types'
 import './Inventario.css'
 
 interface InventarioProps {
     productos: Producto[]
-    categorias: Categoria[]
     onVolver: () => void
     onAjustarStock: (producto: Producto, nuevoStock: number, nuevoStockCaja: number | undefined, nuevoStockUnidad: number | undefined, motivo: string, cantidadDiferencia: number) => void
-    usuarios: Usuario[]
 }
 
-export default function Inventario({ productos, categorias, onVolver, onAjustarStock, usuarios }: InventarioProps) {
+export default function Inventario({ productos, onVolver, onAjustarStock }: InventarioProps) {
     const [busqueda, setBusqueda] = useState('')
     const [diaSeleccionado, setDiaSeleccionado] = useState<string>('')
-    const [categoriaFiltro, setCategoriaFiltro] = useState<string>('')
+
 
     // Estado local para los conteos físicos { [productoId]: { cantidad, cajas, unidades } }
     const [conteos, setConteos] = useState<Record<string, { cantidad?: number, cajas?: number, unidades?: number }>>({})
@@ -84,9 +82,9 @@ export default function Inventario({ productos, categorias, onVolver, onAjustarS
             const totalContado = (cajas * (p.unidadesPorCaja || 1)) + unidades
             return totalContado - p.stock
         } else {
-            const cantidad = conteo.cantidad || 0 // Si undefined es 0? No, mejor undefined
+            const cantidad = conteo.cantidad || 0
             if (conteo.cantidad === undefined) return 0 // No ha contado
-            return conteo.cantidad - p.stock
+            return cantidad - p.stock
         }
     }
 

@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Usuario, ConfiguracionEmpresa, Categoria } from '../types'
 import './Configuracion.css'
 
