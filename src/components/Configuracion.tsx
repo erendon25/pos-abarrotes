@@ -19,7 +19,7 @@ export default function Configuracion({ onVolver, categorias, onConfigSaved }: C
   const [empresa, setEmpresa] = useState<ConfiguracionEmpresa>({
     nombre: 'MINIMARKET COOL MARKET',
     ruc: '10444309852',
-    direccion: 'AV. PORONGOCHE 701 - PAUCARPA',
+    direccion: 'AV. PORONGOCHE 701 - PAUCARPATA',
     telefono: '933424625 / 999999999'
   })
 
@@ -30,7 +30,7 @@ export default function Configuracion({ onVolver, categorias, onConfigSaved }: C
 
   useEffect(() => {
     // Cargar valores guardados
-    const prefijoT = localStorage.getItem('pos_ticket_prefijo') || 'BOL'
+    const prefijoT = localStorage.getItem('pos_ticket_prefijo') || 'TICK'
     const numT = localStorage.getItem('pos_ticket_numero') || '1'
     const prefijoB = localStorage.getItem('pos_boleta_prefijo') || 'BOL'
     const numB = localStorage.getItem('pos_boleta_numero') || '1'
