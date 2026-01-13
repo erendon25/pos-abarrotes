@@ -1,12 +1,4 @@
-import type {
-  Producto,
-  Categoria,
-  Venta,
-  IngresoMercaderia,
-  MovimientoInventario,
-  Usuario,
-  ConfiguracionEmpresa,
-} from '../types'
+import { Producto, Categoria, Usuario, ConfiguracionEmpresa } from '../types'
 
 export const STORAGE_KEYS = {
   productos: 'pos_productos',
