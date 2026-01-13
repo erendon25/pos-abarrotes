@@ -146,7 +146,12 @@ function App() {
       // Subir todos los productos
       productos.forEach(p => {
         const ref = doc(db, 'productos', p.id)
-        batch.set(ref, p, { merge: true })
+        // Sanitizar objeto para eliminar undefined (Firebase no lo soporta)
+        const data = JSON.parse(JSON.stringify(p))
+        // Asegurar que fechaVencimiento se maneje bien si es string o fecha
+        // (JSON.parse lo vuelve string si era Date, pero undefined lo elimina que es lo que queremos)
+
+        batch.set(ref, data, { merge: true })
       })
 
       await batch.commit()

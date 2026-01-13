@@ -100,16 +100,16 @@ export default function Configuracion({ onVolver, categorias, onConfigSaved }: C
     // Validar números
     const numT = parseInt(numeroTicket, 10)
     const numB = parseInt(numeroBoleta, 10)
-    if (isNaN(numT) || numT < 1 || numT > 9999) {
-      alert('El número de ticket debe estar entre 1 y 9999')
+    if (isNaN(numT) || numT < 1 || numT > 999999) {
+      alert('El número de ticket debe ser válido')
       return
     }
-    if (isNaN(numB) || numB < 1 || numB > 9999) {
-      alert('El número de boleta debe estar entre 1 y 9999')
+    if (isNaN(numB) || numB < 1 || numB > 999999) {
+      alert('El número de boleta debe ser válido')
       return
     }
 
-    // Guardar numeración
+    // Guardar numeración explícitamente
     localStorage.setItem('pos_ticket_prefijo', prefijoTicket)
     localStorage.setItem('pos_ticket_numero', numT.toString())
     localStorage.setItem('pos_boleta_prefijo', prefijoBoleta)
@@ -127,7 +127,7 @@ export default function Configuracion({ onVolver, categorias, onConfigSaved }: C
     // Guardar inventario
     localStorage.setItem('pos_config_inventario', JSON.stringify(configInventario))
 
-    alert('Configuración guardada correctamente')
+    alert('✅ Configuración y Numeración Guardadas Correctamente.')
 
     if (onConfigSaved) {
       onConfigSaved()
@@ -210,7 +210,7 @@ export default function Configuracion({ onVolver, categorias, onConfigSaved }: C
                   type="text"
                   value={empresa.telefono}
                   onChange={(e) => setEmpresa({ ...empresa, telefono: e.target.value })}
-                  placeholder="933424625 / 999999999"
+                  placeholder="933424625"
                   className="input-config"
                 />
               </div>
