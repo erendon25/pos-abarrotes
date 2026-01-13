@@ -1,18 +1,18 @@
 import { useRef, useState, useEffect } from 'react'
-import { Usuario, ConfiguracionEmpresa } from '../types'
+import { Usuario, ConfiguracionEmpresa, Categoria } from '../types'
 import './Configuracion.css'
-import { crearRespaldoDesdeLocalStorage, aplicarRespaldoMergeEnLocalStorage } from '../utils/respaldo'
 
 interface ConfiguracionProps {
   onVolver: () => void
+  categorias: Categoria[] // Necesitamos las categorías para la periodicidad
+  onConfigSaved?: () => void
 }
 
-export default function Configuracion({ onVolver }: ConfiguracionProps) {
+export default function Configuracion({ onVolver, categorias, onConfigSaved }: ConfiguracionProps) {
   const [prefijoTicket, setPrefijoTicket] = useState('BOL')
   const [numeroTicket, setNumeroTicket] = useState('1')
   const [prefijoBoleta, setPrefijoBoleta] = useState('BOL')
   const [numeroBoleta, setNumeroBoleta] = useState('1')
-  const [porcentajeBoleta, setPorcentajeBoleta] = useState('18')
   const [porcentajeTarjeta, setPorcentajeTarjeta] = useState('3')
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [nuevoUsuario, setNuevoUsuario] = useState('')
@@ -22,7 +22,11 @@ export default function Configuracion({ onVolver }: ConfiguracionProps) {
     direccion: 'AV. PORONGOCHE 701 - PAUCARPA',
     telefono: '933424625 / 999999999'
   })
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Configuración de Inventario: Día -> [Categorias]
+  const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+  const [configInventario, setConfigInventario] = useState<Record<string, string[]>>({})
+  const [inicializado, setInicializado] = useState(false)
 
   useEffect(() => {
     // Cargar valores guardados
@@ -30,9 +34,8 @@ export default function Configuracion({ onVolver }: ConfiguracionProps) {
     const numT = localStorage.getItem('pos_ticket_numero') || '1'
     const prefijoB = localStorage.getItem('pos_boleta_prefijo') || 'BOL'
     const numB = localStorage.getItem('pos_boleta_numero') || '1'
-    const porcBol = localStorage.getItem('pos_porcentaje_boleta') || '18'
     const porcTarj = localStorage.getItem('pos_porcentaje_tarjeta') || '3'
-    
+
     // Cargar usuarios
     const usuariosGuardados = localStorage.getItem('pos_usuarios')
     if (usuariosGuardados) {
@@ -43,20 +46,55 @@ export default function Configuracion({ onVolver }: ConfiguracionProps) {
       setUsuarios([usuarioDefault])
       localStorage.setItem('pos_usuarios', JSON.stringify([usuarioDefault]))
     }
-    
+
     // Cargar datos de empresa
     const empresaGuardada = localStorage.getItem('pos_empresa')
     if (empresaGuardada) {
       setEmpresa(JSON.parse(empresaGuardada))
     }
 
+    // Cargar config inventario
+    const invGuardado = localStorage.getItem('pos_config_inventario')
+    if (invGuardado) {
+      setConfigInventario(JSON.parse(invGuardado))
+    }
+
     setPrefijoTicket(prefijoT)
     setNumeroTicket(numT)
     setPrefijoBoleta(prefijoB)
     setNumeroBoleta(numB)
-    setPorcentajeBoleta(porcBol)
     setPorcentajeTarjeta(porcTarj)
+
+    setInicializado(true)
   }, [])
+
+  // Auto-guardado de Empresa
+  useEffect(() => {
+    if (!inicializado) return
+    localStorage.setItem('pos_empresa', JSON.stringify(empresa))
+  }, [empresa, inicializado])
+
+  // Auto-guardado de Usuarios
+  useEffect(() => {
+    if (!inicializado) return
+    localStorage.setItem('pos_usuarios', JSON.stringify(usuarios))
+  }, [usuarios, inicializado])
+
+  // Auto-guardado de Inventario
+  useEffect(() => {
+    if (!inicializado) return
+    localStorage.setItem('pos_config_inventario', JSON.stringify(configInventario))
+  }, [configInventario, inicializado])
+
+  // Auto-guardado de Numeración y Otros
+  useEffect(() => {
+    if (!inicializado) return
+    localStorage.setItem('pos_ticket_prefijo', prefijoTicket)
+    localStorage.setItem('pos_ticket_numero', numeroTicket)
+    localStorage.setItem('pos_boleta_prefijo', prefijoBoleta)
+    localStorage.setItem('pos_boleta_numero', numeroBoleta)
+    localStorage.setItem('pos_porcentaje_tarjeta', porcentajeTarjeta)
+  }, [prefijoTicket, numeroTicket, prefijoBoleta, numeroBoleta, porcentajeTarjeta, inicializado])
 
   const guardarConfiguracion = () => {
     // Validar números
@@ -78,53 +116,22 @@ export default function Configuracion({ onVolver }: ConfiguracionProps) {
     localStorage.setItem('pos_boleta_numero', numB.toString())
 
     // Guardar porcentajes
-    localStorage.setItem('pos_porcentaje_boleta', porcentajeBoleta)
     localStorage.setItem('pos_porcentaje_tarjeta', porcentajeTarjeta)
-    
+
     // Guardar usuarios
     localStorage.setItem('pos_usuarios', JSON.stringify(usuarios))
-    
+
     // Guardar empresa
     localStorage.setItem('pos_empresa', JSON.stringify(empresa))
 
+    // Guardar inventario
+    localStorage.setItem('pos_config_inventario', JSON.stringify(configInventario))
+
     alert('Configuración guardada correctamente')
-  }
 
-  const exportarRespaldo = () => {
-    const respaldo = crearRespaldoDesdeLocalStorage()
-    const nombreArchivo = `respaldo-pos-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
-    const blob = new Blob([JSON.stringify(respaldo, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = nombreArchivo
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
-  }
-
-  const abrirImportacion = () => {
-    fileInputRef.current?.click()
-  }
-
-  const importarRespaldo = async (file: File) => {
-    const texto = await file.text()
-    const json = JSON.parse(texto)
-    const res = aplicarRespaldoMergeEnLocalStorage(json)
-
-    alert(
-      `Importación completada (se SUMÓ, no se reemplazó):\n` +
-      `- Nuevos productos: ${res.nuevos.productos}\n` +
-      `- Nuevas categorías: ${res.nuevos.categorias}\n` +
-      `- Nuevas ventas: ${res.nuevos.ventas}\n` +
-      `- Nuevos ingresos: ${res.nuevos.ingresos}\n` +
-      `- Nuevos movimientos: ${res.nuevos.movimientos}\n\n` +
-      `Se recomienda recargar para ver todo actualizado.`
-    )
-
-    // Recargar para que App vuelva a leer localStorage y se reflejen ventas/ingresos/stock
-    window.location.reload()
+    if (onConfigSaved) {
+      onConfigSaved()
+    }
   }
 
   const agregarUsuario = () => {
@@ -149,6 +156,17 @@ export default function Configuracion({ onVolver }: ConfiguracionProps) {
     if (confirm('¿Está seguro de eliminar este usuario?')) {
       setUsuarios(usuarios.filter(u => u.id !== id))
     }
+  }
+
+  const toggleCategoriaDia = (dia: string, catNombre: string) => {
+    setConfigInventario(prev => {
+      const catsDelDia = prev[dia] || []
+      if (catsDelDia.includes(catNombre)) {
+        return { ...prev, [dia]: catsDelDia.filter(c => c !== catNombre) }
+      } else {
+        return { ...prev, [dia]: [...catsDelDia, catNombre] }
+      }
+    })
   }
 
   return (
@@ -210,6 +228,31 @@ export default function Configuracion({ onVolver }: ConfiguracionProps) {
           </div>
         </div>
 
+        {/* Periodicidad de Inventario */}
+        <div className="config-section">
+          <h2>Periodicidad de Inventario</h2>
+          <p style={{ marginBottom: '1rem', color: '#666' }}>Selecciona qué categorías se inventariarán cada día de la semana.</p>
+          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px' }}>
+            {diasSemana.map(dia => (
+              <div key={dia} style={{ minWidth: '150px', background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <h3 style={{ fontSize: '1rem', textAlign: 'center', marginBottom: '10px', color: '#0d9488' }}>{dia}</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {categorias.map(cat => (
+                    <label key={cat.nombre} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.85rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={(configInventario[dia] || []).includes(cat.nombre)}
+                        onChange={() => toggleCategoriaDia(dia, cat.nombre)}
+                      />
+                      {cat.nombre}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Usuarios */}
         <div className="config-section">
           <h2>Usuarios</h2>
@@ -219,7 +262,7 @@ export default function Configuracion({ onVolver }: ConfiguracionProps) {
                 <div key={usuario.id} className="usuario-item">
                   <span>{usuario.nombre}</span>
                   {usuarios.length > 1 && (
-                    <button 
+                    <button
                       className="btn-eliminar-usuario"
                       onClick={() => eliminarUsuario(usuario.id)}
                       title="Eliminar usuario"
@@ -252,7 +295,7 @@ export default function Configuracion({ onVolver }: ConfiguracionProps) {
         {/* Numeración */}
         <div className="config-section">
           <h2>Numeración de Comprobantes</h2>
-          
+
           <div className="config-grid">
             <div className="config-item">
               <h3>Tickets</h3>
@@ -339,29 +382,8 @@ export default function Configuracion({ onVolver }: ConfiguracionProps) {
         {/* Porcentajes */}
         <div className="config-section">
           <h2>Porcentajes por Defecto</h2>
-          
-          <div className="config-grid">
-            <div className="config-item">
-              <h3>Porcentaje de Boleta (IGV)</h3>
-              <div className="config-campos">
-                <div className="form-group-config">
-                  <label>Porcentaje (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={porcentajeBoleta}
-                    onChange={(e) => setPorcentajeBoleta(e.target.value)}
-                    placeholder="18"
-                    className="input-config"
-                  />
-                </div>
-                <div className="config-info">
-                  Este porcentaje se aplicará automáticamente cuando se solicite una boleta
-                </div>
-              </div>
-            </div>
 
+          <div className="config-grid">
             <div className="config-item">
               <h3>Porcentaje por Pago con Tarjeta</h3>
               <div className="config-campos">
@@ -385,42 +407,9 @@ export default function Configuracion({ onVolver }: ConfiguracionProps) {
           </div>
         </div>
 
-        {/* Respaldo e importación */}
-        <div className="config-section">
-          <h2>Respaldo e Importación (Teléfono ↔ PC)</h2>
-          <div className="config-info" style={{ background: '#fffbeb', color: '#92400e' }}>
-            El respaldo se guarda en un archivo. Al importar, los datos <strong>se suman</strong> a lo que ya tienes (no reemplaza).
-            Úsalo si trabajaste en el teléfono por un corte de luz y luego quieres traer ventas/ingresos/salidas a la PC.
-          </div>
-
-          <div className="backup-actions">
-            <button className="btn-backup" onClick={exportarRespaldo}>
-              ⬇️ Exportar respaldo (JSON)
-            </button>
-            <button className="btn-backup" onClick={abrirImportacion}>
-              ⬆️ Importar respaldo (sumar)
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/json"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (!f) return
-                importarRespaldo(f).catch((err) => {
-                  alert(`No se pudo importar el archivo: ${err?.message || err}`)
-                }).finally(() => {
-                  e.currentTarget.value = ''
-                })
-              }}
-            />
-          </div>
-        </div>
-
         <div className="config-actions">
           <button className="btn-guardar-config" onClick={guardarConfiguracion}>
-            Guardar Configuración
+            Guardar
           </button>
         </div>
       </div>

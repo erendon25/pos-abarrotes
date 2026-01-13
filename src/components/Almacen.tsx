@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Producto, Categoria } from '../types'
 import GestionCategorias from './GestionCategorias'
 import './Almacen.css'
@@ -12,10 +12,10 @@ interface AlmacenProps {
   onCambiarVista?: (vista: 'ingresoMercaderia' | 'movimientosInventario' | 'vencimientos') => void
 }
 
-export default function Almacen({ 
-  productos, 
+export default function Almacen({
+  productos,
   categorias,
-  onVolver, 
+  onVolver,
   onActualizarProductos,
   onActualizarCategorias,
   onCambiarVista
@@ -25,6 +25,8 @@ export default function Almacen({
   const [mostrarGestionCategorias, setMostrarGestionCategorias] = useState(false)
   const [formularioProducto, setFormularioProducto] = useState<Partial<Producto>>({
     nombre: '',
+    marca: '',
+    presentacion: '',
     precio: 0,
     categoria: '',
     subcategoria: '',
@@ -41,7 +43,7 @@ export default function Almacen({
 
   const cancelarEdicion = () => {
     setEditandoId(null)
-    setFormularioProducto({ nombre: '', precio: 0, categoria: '', subcategoria: '', stock: 0, codigoBarras: '', fechaVencimiento: undefined })
+    setFormularioProducto({ nombre: '', marca: '', presentacion: '', precio: 0, categoria: '', subcategoria: '', stock: 0, codigoBarras: '', fechaVencimiento: undefined })
     setPreciosSubcategoria({})
     setEditandoPreciosSubcategoria(false)
   }
@@ -77,6 +79,8 @@ export default function Almacen({
   const iniciarNuevoProducto = () => {
     setFormularioProducto({
       nombre: '',
+      marca: '',
+      presentacion: '',
       precio: 0,
       categoria: '',
       subcategoria: '',
@@ -110,6 +114,8 @@ export default function Almacen({
     const nuevoProducto: Producto = {
       id: Date.now().toString(),
       nombre: formularioProducto.nombre,
+      marca: formularioProducto.marca || undefined,
+      presentacion: formularioProducto.presentacion || undefined,
       precio: formularioProducto.precio || 0,
       categoria: formularioProducto.categoria,
       subcategoria: formularioProducto.subcategoria || undefined,
@@ -124,12 +130,14 @@ export default function Almacen({
 
     onActualizarProductos([...productos, nuevoProducto])
     setMostrarFormulario(false)
-    setFormularioProducto({ 
-      nombre: '', 
-      precio: 0, 
-      categoria: '', 
-      subcategoria: '', 
-      stock: 0, 
+    setFormularioProducto({
+      nombre: '',
+      marca: '',
+      presentacion: '',
+      precio: 0,
+      categoria: '',
+      subcategoria: '',
+      stock: 0,
       codigoBarras: '',
       esCerrado: false,
       unidadesPorCaja: undefined,
@@ -173,32 +181,110 @@ export default function Almacen({
     setEditandoPreciosSubcategoria(false)
   }
 
+  const [menuAbierto, setMenuAbierto] = useState(false)
+  const [filtroTexto, setFiltroTexto] = useState('')
+  const [filtroCategoria, setFiltroCategoria] = useState('')
+  const [filtroStock, setFiltroStock] = useState('todos') // todos, bajo, sin
+  const [limiteVisible, setLimiteVisible] = useState(50)
+
+  // Resetear límite cuando cambian los filtros
+  useEffect(() => {
+    setLimiteVisible(50)
+  }, [filtroTexto, filtroCategoria, filtroStock])
+
+  // Lógica de filtrado y ordenamiento
+  const productosFiltrados = productos.filter(p => {
+    // Filtro por texto (nombre, marca, código)
+    const texto = filtroTexto.toLowerCase()
+    const coincideTexto =
+      p.nombre.toLowerCase().includes(texto) ||
+      (p.marca && p.marca.toLowerCase().includes(texto)) ||
+      (p.codigoBarras && p.codigoBarras.includes(texto))
+
+    if (!coincideTexto) return false
+
+    // Filtro por categoría
+    if (filtroCategoria && p.categoria !== filtroCategoria) return false
+
+    // Filtro por stock
+    if (filtroStock === 'bajo') return p.stock < 10 && p.stock > 0
+    if (filtroStock === 'sin') return p.stock === 0
+
+    return true
+  }).sort((a, b) => {
+    // Ordenar por nombre primero
+    const nombreA = (a.nombre || '').toLowerCase()
+    const nombreB = (b.nombre || '').toLowerCase()
+    if (nombreA !== nombreB) {
+      return nombreA.localeCompare(nombreB, 'es', { sensitivity: 'base' })
+    }
+    return 0
+  })
+
+  const productosVisibles = productosFiltrados.slice(0, limiteVisible)
+
   return (
     <div className="almacen">
+      {/* ... (Header y Menú igual que antes) ... */}
       <div className="almacen-header">
         <h1>Almacén</h1>
         <div className="header-actions">
-          <button className="btn-categorias" onClick={() => setMostrarGestionCategorias(true)}>
-            ⚙️ Gestionar Categorías
-          </button>
-          <button className="btn-agregar" onClick={iniciarNuevoProducto}>
-            + Agregar Producto
-          </button>
-          <button className="btn-ingreso" onClick={() => onCambiarVista?.('ingresoMercaderia')}>
-            📥 Ingreso Mercadería
-          </button>
-          <button className="btn-movimientos" onClick={() => onCambiarVista?.('movimientosInventario')}>
-            📊 Movimientos
-          </button>
-          <button className="btn-vencimientos" onClick={() => onCambiarVista?.('vencimientos')}>
-            ⏰ Vencimientos
+          <button
+            className="btn-menu-toggle"
+            onClick={() => setMenuAbierto(!menuAbierto)}
+            aria-label="Toggle menu"
+          >
+            ☰
           </button>
           <button className="btn-volver" onClick={onVolver}>
             ← Volver a Venta
           </button>
         </div>
       </div>
-      
+
+      {/* Menú deslizante */}
+      <div className={`menu-deslizante ${menuAbierto ? 'abierto' : ''}`}>
+        <h3 className="menu-titulo">Opciones</h3>
+        <button className="btn-menu-item" onClick={() => {
+          setMostrarGestionCategorias(true)
+          setMenuAbierto(false)
+        }}>
+          ⚙️ Gestionar Categorías
+        </button>
+        <button className="btn-menu-item" onClick={() => {
+          iniciarNuevoProducto()
+          setMenuAbierto(false)
+        }}>
+          + Agregar Producto
+        </button>
+        <button className="btn-menu-item" onClick={() => {
+          onCambiarVista?.('movimientosInventario')
+          setMenuAbierto(false)
+        }}>
+          📊 Movimientos
+        </button>
+        <button className="btn-menu-item" onClick={() => {
+          onCambiarVista?.('vencimientos')
+          setMenuAbierto(false)
+        }}>
+          ⏰ Vencimientos
+        </button>
+      </div>
+
+      {/* Overlay para cerrar menú */}
+      {menuAbierto && (
+        <div className="menu-overlay" onClick={() => setMenuAbierto(false)}></div>
+      )}
+
+      {/* Botón flotante para ingreso mercadería */}
+      <button
+        className="btn-flotante-ingreso"
+        onClick={() => onCambiarVista?.('ingresoMercaderia')}
+        title="Ingreso de Mercadería"
+      >
+        +
+      </button>
+
       {mostrarGestionCategorias && (
         <GestionCategorias
           categorias={categorias}
@@ -206,15 +292,16 @@ export default function Almacen({
           onCerrar={() => setMostrarGestionCategorias(false)}
         />
       )}
-      
+
       <div className="almacen-content">
+
         <div className="almacen-stats">
           <div className="stat-card">
-            <span className="stat-label">Total de Productos</span>
-            <span className="stat-value">{productos.length}</span>
+            <span className="stat-label">Total Productos</span>
+            <span className="stat-value">{productosFiltrados.length}</span>
           </div>
           <div className="stat-card">
-            <span className="stat-label">Productos con Stock Bajo</span>
+            <span className="stat-label">Stock Bajo</span>
             <span className="stat-value warning">
               {productos.filter(p => p.stock < 10).length}
             </span>
@@ -226,16 +313,34 @@ export default function Almacen({
             <h2>Nuevo Producto</h2>
             <div className="form-grid">
               <div className="form-group">
-                <label>Nombre del Producto</label>
+                <label>Nombre del Producto *</label>
                 <input
                   type="text"
                   value={formularioProducto.nombre || ''}
                   onChange={(e) => setFormularioProducto({ ...formularioProducto, nombre: e.target.value })}
-                  placeholder="Ej: Arroz 1kg"
+                  placeholder="Ej: Arroz"
                 />
               </div>
               <div className="form-group">
-                <label>Categoría</label>
+                <label>Marca (Opcional)</label>
+                <input
+                  type="text"
+                  value={formularioProducto.marca || ''}
+                  onChange={(e) => setFormularioProducto({ ...formularioProducto, marca: e.target.value })}
+                  placeholder="Ej: Gloria, Primor, Costeño"
+                />
+              </div>
+              <div className="form-group">
+                <label>Presentación/Tamaño (Opcional)</label>
+                <input
+                  type="text"
+                  value={formularioProducto.presentacion || ''}
+                  onChange={(e) => setFormularioProducto({ ...formularioProducto, presentacion: e.target.value })}
+                  placeholder="Ej: 1kg, 500g, Lata 400g"
+                />
+              </div>
+              <div className="form-group">
+                <label>Categoría *</label>
                 <select
                   value={formularioProducto.categoria || ''}
                   onChange={(e) => setFormularioProducto({ ...formularioProducto, categoria: e.target.value, subcategoria: '' })}
@@ -301,7 +406,7 @@ export default function Almacen({
                   }}
                 />
               </div>
-              
+
               {/* Producto cerrado (cajas/unidades) */}
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -326,7 +431,7 @@ export default function Almacen({
                   <span>Producto cerrado (se vende en cajas y unidades, ej: cigarros)</span>
                 </label>
               </div>
-              
+
               {formularioProducto.esCerrado && (
                 <>
                   <div className="form-group">
@@ -416,9 +521,42 @@ export default function Almacen({
             </div>
           </div>
         )}
-        
+
         <div className="productos-almacen">
-          <h2>Inventario</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ margin: 0 }}>Inventario</h2>
+
+            {/* Filtros */}
+            <div className="filtros-container" style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="text"
+                placeholder="🔍 Buscar..."
+                value={filtroTexto}
+                onChange={e => setFiltroTexto(e.target.value)}
+                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
+              />
+
+              <select
+                value={filtroCategoria}
+                onChange={e => setFiltroCategoria(e.target.value)}
+                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
+              >
+                <option value="">Todas las Categorías</option>
+                {categorias.map(c => <option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
+              </select>
+
+              <select
+                value={filtroStock}
+                onChange={e => setFiltroStock(e.target.value)}
+                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
+              >
+                <option value="todos">Todos los Stocks</option>
+                <option value="bajo">Stock Bajo (&lt;10)</option>
+                <option value="sin">Sin Stock (0)</option>
+              </select>
+            </div>
+          </div>
+
           <div className="productos-table">
             <div className="table-header">
               <div className="col-nombre-vencimiento">
@@ -431,7 +569,7 @@ export default function Almacen({
               <div className="col-precio">Precio</div>
               <div className="col-codigo-barras">Código Barras</div>
             </div>
-            {productos.map(producto => (
+            {productosVisibles.map(producto => (
               editandoId === producto.id ? (
                 <div key={producto.id} className="table-row edicion">
                   <div className="col-nombre-vencimiento">
@@ -439,7 +577,22 @@ export default function Almacen({
                       type="text"
                       value={formularioProducto.nombre || ''}
                       onChange={(e) => setFormularioProducto({ ...formularioProducto, nombre: e.target.value })}
+                      placeholder="Nombre"
                       style={{ marginBottom: '0.25rem' }}
+                    />
+                    <input
+                      type="text"
+                      value={formularioProducto.marca || ''}
+                      onChange={(e) => setFormularioProducto({ ...formularioProducto, marca: e.target.value })}
+                      placeholder="Marca (opcional)"
+                      style={{ marginBottom: '0.25rem', fontSize: '0.75rem' }}
+                    />
+                    <input
+                      type="text"
+                      value={formularioProducto.presentacion || ''}
+                      onChange={(e) => setFormularioProducto({ ...formularioProducto, presentacion: e.target.value })}
+                      placeholder="Presentación (opcional)"
+                      style={{ marginBottom: '0.25rem', fontSize: '0.75rem' }}
                     />
                     <input
                       type="date"
@@ -448,6 +601,7 @@ export default function Almacen({
                         const fecha = e.target.value ? new Date(e.target.value) : undefined
                         setFormularioProducto({ ...formularioProducto, fechaVencimiento: fecha })
                       }}
+                      style={{ fontSize: '0.75rem' }}
                     />
                   </div>
                   <div className="col-acciones">
@@ -462,8 +616,8 @@ export default function Almacen({
                     <select
                       value={formularioProducto.categoria || ''}
                       onChange={(e) => {
-                        setFormularioProducto({ 
-                          ...formularioProducto, 
+                        setFormularioProducto({
+                          ...formularioProducto,
                           categoria: e.target.value,
                           subcategoria: ''
                         })
@@ -503,7 +657,7 @@ export default function Almacen({
                       onChange={(e) => setFormularioProducto({ ...formularioProducto, precio: parseFloat(e.target.value) || 0 })}
                     />
                     {subcategoriasDisponibles.length > 0 && (
-                      <button 
+                      <button
                         className="btn-precios-subcategoria"
                         onClick={() => setEditandoPreciosSubcategoria(!editandoPreciosSubcategoria)}
                         style={{ marginTop: '0.5rem', width: '100%' }}
@@ -524,7 +678,7 @@ export default function Almacen({
                               onChange={(e) => actualizarPrecioSubcategoria(sub, parseFloat(e.target.value) || 0)}
                               placeholder={formularioProducto.precio?.toFixed(2) || '0.00'}
                             />
-                            <button 
+                            <button
                               className="btn-eliminar-precio-sub"
                               onClick={() => eliminarPrecioSubcategoria(sub)}
                               title="Eliminar precio"
@@ -533,7 +687,7 @@ export default function Almacen({
                             </button>
                           </div>
                         ))}
-                        <button 
+                        <button
                           className="btn-guardar-precios-sub"
                           onClick={guardarPreciosSubcategoria}
                         >
@@ -552,13 +706,19 @@ export default function Almacen({
                   </div>
                 </div>
               ) : (
-                <div 
-                  key={producto.id} 
+                <div
+                  key={producto.id}
                   className={`table-row ${producto.stock === 0 ? 'sin-stock' : producto.stock < 10 ? 'stock-bajo' : ''}`}
                 >
                   <div className="col-nombre-vencimiento">
                     <div className="producto-nombre">
                       {producto.nombre}
+                      {producto.marca && (
+                        <span className="marca-badge-table">{producto.marca}</span>
+                      )}
+                      {producto.presentacion && (
+                        <span className="presentacion-badge-table">{producto.presentacion}</span>
+                      )}
                       {producto.subcategoria && (
                         <span className="subcategoria-badge-table">{producto.subcategoria}</span>
                       )}
@@ -605,6 +765,17 @@ export default function Almacen({
               )
             ))}
           </div>
+          {limiteVisible < productosFiltrados.length && (
+            <div style={{ textAlign: 'center', margin: '2rem 0' }}>
+              <button
+                className="btn-guardar"
+                onClick={() => setLimiteVisible(prev => prev + 50)}
+                style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
+              >
+                Cargar más productos ({productosFiltrados.length - limiteVisible} restantes)
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

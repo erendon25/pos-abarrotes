@@ -64,14 +64,22 @@ export default function Carrito({
                 <div key={itemKey} className="carrito-item">
                   <div className="item-info">
                     <h4>{item.producto.nombre}</h4>
-                    {item.subcategoriaSeleccionada && (
-                      <span className="subcategoria-badge-carrito">{item.subcategoriaSeleccionada}</span>
-                    )}
-                    {tipoVenta && (
-                      <span className="tipo-venta-badge">
-                        {tipoVenta === 'unidades' ? '📄 Por unidad' : '📦 Por caja'}
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                      {item.producto.marca && (
+                        <span className="marca-badge-carrito">{item.producto.marca}</span>
+                      )}
+                      {item.producto.presentacion && (
+                        <span className="presentacion-badge-carrito">{item.producto.presentacion}</span>
+                      )}
+                      {item.subcategoriaSeleccionada && (
+                        <span className="subcategoria-badge-carrito">{item.subcategoriaSeleccionada}</span>
+                      )}
+                      {tipoVenta && (
+                        <span className="tipo-venta-badge">
+                          {tipoVenta === 'unidades' ? '📄 Por unidad' : '📦 Por caja'}
+                        </span>
+                      )}
+                    </div>
                     <p className="item-precio-unitario">
                       S/ {precio.toFixed(2)} {tipoVenta === 'unidades' ? 'c/unidad' : tipoVenta === 'cajas' ? 'c/caja' : 'c/u'}
                     </p>

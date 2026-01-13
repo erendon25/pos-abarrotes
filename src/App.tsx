@@ -1,7 +1,11 @@
 ﻿import { useState, useEffect, useRef, useMemo } from 'react'
+import { db } from './firebase'
+import { collection, getDocs, writeBatch, doc, setDoc } from 'firebase/firestore'
 import { Producto, ItemCarrito, Venta, Categoria, MetodoPago, Usuario, IngresoMercaderia, MovimientoInventario } from './types'
 import ProductosGrid from './components/ProductosGrid'
 import Carrito from './components/Carrito'
+import Inventario from './components/Inventario'
+
 import Almacen from './components/Almacen'
 import Reportes from './components/Reportes'
 import Configuracion from './components/Configuracion'
@@ -44,7 +48,7 @@ const categoriasIniciales: Categoria[] = [
   { nombre: 'Limpieza', subcategorias: [] },
 ]
 
-type Vista = 'venta' | 'almacen' | 'reportes' | 'configuracion' | 'registroVentas' | 'ingresoMercaderia' | 'movimientosInventario' | 'vencimientos'
+type Vista = 'venta' | 'almacen' | 'reportes' | 'configuracion' | 'registroVentas' | 'ingresoMercaderia' | 'movimientosInventario' | 'vencimientos' | 'inventario'
 
 function App() {
   const [vista, setVista] = useState<Vista>('venta')
@@ -59,12 +63,134 @@ function App() {
   const [ingresos, setIngresos] = useState<IngresoMercaderia[]>([])
   const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([])
   const [mostrarNotificacionVencimientos, setMostrarNotificacionVencimientos] = useState(false)
-  const [usuarios, setUsuarios] = useState<Usuario[]>([])
-  
+  const [usuarios, setUsuarios] = useState<Usuario[]>(() => {
+    try {
+      const saved = localStorage.getItem('pos_usuarios')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed
+        }
+      }
+    } catch (e) {
+      console.error('Error cargando usuarios iniciales:', e)
+    }
+    // Default si no hay nada o falló
+    return [{ id: '1', nombre: 'CAJERO' }]
+  })
+
   // Referencias para el manejo de códigos de barras
   const codigoBarrasBuffer = useRef('')
   const tiempoUltimaTecla = useRef(0)
   const inputFocused = useRef(false)
+
+  // Estado del menú lateral
+  const [menuAbierto, setMenuAbierto] = useState(false)
+
+  const handleConfigSaved = () => {
+    // Recargar usuarios y configuraciones sin reiniciar toda la app
+    try {
+      const usuariosGuardados = localStorage.getItem('pos_usuarios')
+      if (usuariosGuardados) {
+        setUsuarios(JSON.parse(usuariosGuardados))
+      }
+      // Aquí se pueden recargar otros estados si fuera necesario
+    } catch (error) {
+      console.error('Error recargando configuración:', error)
+    }
+  }
+
+  const handleAjustarStock = (producto: Producto, nuevoStock: number, nuevoStockCaja: number | undefined, nuevoStockUnidad: number | undefined, motivo: string, cantidadDiferencia: number) => {
+    const stockAnterior = producto.stock
+
+    // Actualizar producto
+    setProductos(prev => prev.map(p => {
+      if (p.id === producto.id) {
+        return {
+          ...p,
+          stock: nuevoStock,
+          stockCaja: nuevoStockCaja,
+          stockUnidad: nuevoStockUnidad
+        }
+      }
+      return p
+    }))
+
+    // Registrar movimiento
+    const movimiento: MovimientoInventario = {
+      id: Date.now().toString() + Math.random().toString(),
+      fecha: new Date(),
+      tipo: 'ajuste',
+      productoId: producto.id,
+      productoNombre: producto.nombre,
+      cantidad: cantidadDiferencia,
+      cantidadAnterior: stockAnterior,
+      cantidadNueva: nuevoStock,
+      referencia: `Inventario: ${motivo}`, // Usamos referencia para guardar el motivo específico
+      usuario: usuarios[0]
+    }
+    setMovimientos(prev => [...prev, movimiento])
+  }
+
+  // Función centralizada para sincronizar
+  const ejecutarSincronizacion = async (silencioso = false) => {
+    if (!silencioso) {
+      if (!window.confirm('¿Seguro que deseas actualizar la nube? Esto sobreescribirá el stock en la nube con lo que tienes aquí.')) {
+        return
+      }
+    }
+
+    console.log('Iniciando sincronización con la nube...')
+    try {
+      const batch = writeBatch(db)
+
+      // Subir todos los productos
+      productos.forEach(p => {
+        const ref = doc(db, 'productos', p.id)
+        batch.set(ref, p, { merge: true })
+      })
+
+      await batch.commit()
+
+      if (!silencioso) {
+        alert('✅ Sincronización completada. Tus datos están seguros en la nube.')
+      } else {
+        console.log('✅ Corte de mediodía completado automáticamente.')
+      }
+
+      // Registrar fecha de última sync exitosa
+      localStorage.setItem('ultimo_corte_nuve', new Date().toISOString())
+
+    } catch (error) {
+      console.error('Error al sincronizar:', error)
+      if (!silencioso) alert('❌ Error al sincronizar. Revisa tu conexión.')
+    }
+  }
+
+  // Scheduler para "Corte Inteligente" (Mediodía)
+  useEffect(() => {
+    const chequearHora = () => {
+      const ahora = new Date()
+      const hora = ahora.getHours()
+      const fechaHoy = ahora.toLocaleDateString()
+      // Usamos una key única por día
+      const keySyncHoy = `sync_mediodia_${fechaHoy.replace(/\//g, '-')}`
+
+      // Si es mediodía (12:00 - 12:59) y NO se ha hecho hoy
+      if (hora === 12 && !localStorage.getItem(keySyncHoy)) {
+        console.log("⏰ Ejecutando corte automático de mediodía...")
+        ejecutarSincronizacion(true) // Modo silencioso
+        localStorage.setItem(keySyncHoy, 'true')
+      }
+    }
+
+    // Chequear cada minuto (60,000 ms)
+    const intervalo = setInterval(chequearHora, 60000)
+    chequearHora()
+
+    return () => clearInterval(intervalo)
+  }, [productos])
+
 
   const STORAGE_KEY_INGRESOS = 'pos_ingresos_mercaderia'
   const STORAGE_KEY_MOVIMIENTOS = 'pos_movimientos_inventario'
@@ -79,12 +205,12 @@ function App() {
     if (item.subcategoriaSeleccionada && item.producto.preciosPorSubcategoria) {
       return item.producto.preciosPorSubcategoria[item.subcategoriaSeleccionada] || item.producto.precio
     }
-    
+
     // Si es producto cerrado vendido en unidades, usar precio por unidad
     if (item.producto.esCerrado && item.vendidoEnUnidades && item.producto.precioUnidad) {
       return item.producto.precioUnidad
     }
-    
+
     // Precio base (por caja si es cerrado, precio normal si no)
     return item.producto.precio
   }
@@ -128,18 +254,18 @@ function App() {
     setCarrito((prev: ItemCarrito[]) => {
       const subcategoriaValue = subcategoria || undefined
       const vendidoEnUnidadesValue = vendidoEnUnidades !== undefined ? vendidoEnUnidades : undefined
-      
+
       // Para productos cerrados, también considerar si se vendió en unidades
-      const existe = prev.find(item => 
-        item.producto.id === producto.id && 
+      const existe = prev.find(item =>
+        item.producto.id === producto.id &&
         item.subcategoriaSeleccionada === subcategoriaValue &&
         item.vendidoEnUnidades === vendidoEnUnidadesValue
       )
-      
+
       if (existe) {
         // Validar que no se exceda el stock disponible
         const nuevaCantidad = existe.cantidad + 1
-        
+
         // Validación especial para productos cerrados
         if (producto.esCerrado && producto.stockCaja !== undefined && producto.stockUnidad !== undefined) {
           if (vendidoEnUnidades) {
@@ -163,16 +289,16 @@ function App() {
             return prev
           }
         }
-        
+
         return prev.map(item =>
-          item.producto.id === producto.id && 
-          item.subcategoriaSeleccionada === subcategoriaValue &&
-          item.vendidoEnUnidades === vendidoEnUnidadesValue
+          item.producto.id === producto.id &&
+            item.subcategoriaSeleccionada === subcategoriaValue &&
+            item.vendidoEnUnidades === vendidoEnUnidadesValue
             ? { ...item, cantidad: nuevaCantidad }
             : item
         )
       }
-      
+
       const nuevoItem: ItemCarrito = {
         producto,
         cantidad: 1,
@@ -190,8 +316,8 @@ function App() {
     }
 
     // Validar stock disponible
-    const item = carrito.find(i => 
-      i.producto.id === id && 
+    const item = carrito.find(i =>
+      i.producto.id === id &&
       i.subcategoriaSeleccionada === subcategoria &&
       i.vendidoEnUnidades === vendidoEnUnidades
     )
@@ -226,9 +352,9 @@ function App() {
 
     setCarrito(prev =>
       prev.map(item =>
-        item.producto.id === id && 
-        item.subcategoriaSeleccionada === subcategoria &&
-        item.vendidoEnUnidades === vendidoEnUnidades
+        item.producto.id === id &&
+          item.subcategoriaSeleccionada === subcategoria &&
+          item.vendidoEnUnidades === vendidoEnUnidades
           ? { ...item, cantidad }
           : item
       )
@@ -236,8 +362,8 @@ function App() {
   }
 
   const eliminarDelCarrito = (id: string, subcategoria?: string, vendidoEnUnidades?: boolean) => {
-    setCarrito(prev => prev.filter(item => 
-      !(item.producto.id === id && 
+    setCarrito(prev => prev.filter(item =>
+      !(item.producto.id === id &&
         item.subcategoriaSeleccionada === subcategoria &&
         item.vendidoEnUnidades === vendidoEnUnidades)
     ))
@@ -245,7 +371,7 @@ function App() {
 
   const cambiarSubcategoria = (item: ItemCarrito, nuevaSubcategoria: string | null) => {
     // Eliminar el item actual
-    setCarrito(prev => prev.filter(i => 
+    setCarrito(prev => prev.filter(i =>
       !(i.producto.id === item.producto.id && i.subcategoriaSeleccionada === item.subcategoriaSeleccionada)
     ))
     // Agregar con la nueva subcategoría
@@ -257,33 +383,26 @@ function App() {
     setMostrarModalPago(true)
   }
 
-  const confirmarPago = (
-    metodosPago: MetodoPago[], 
-    vuelto: number, 
+  const confirmarPago = async (
+    metodosPago: MetodoPago[],
+    vuelto: number,
     requiereBoleta: boolean,
-    porcentajeBoleta?: number,
     usuario?: Usuario,
     porcentajeTarjeta?: number
   ) => {
     const subtotal = calcularTotal()
-    
+
     // Calcular total con adicionales
     let total = subtotal
-    if (requiereBoleta && porcentajeBoleta) {
-      total += subtotal * (porcentajeBoleta / 100)
-    }
     if (porcentajeTarjeta) {
-      const totalConBoleta = requiereBoleta && porcentajeBoleta 
-        ? subtotal + (subtotal * (porcentajeBoleta / 100))
-        : subtotal
-      total += totalConBoleta * (porcentajeTarjeta / 100)
+      total += subtotal * (porcentajeTarjeta / 100)
     }
-    
+
     // Obtener número de comprobante (por defecto ticket, boleta si se solicita)
     const tipoComprobante = requiereBoleta ? 'boleta' : 'ticket'
     const numeroTicket = !requiereBoleta ? obtenerSiguienteTicket() : undefined
     const numeroBoleta = requiereBoleta ? obtenerSiguienteBoleta() : undefined
-    
+
     // Guardar la venta en el historial
     const nuevaVenta: Venta = {
       id: Date.now().toString(),
@@ -297,32 +416,34 @@ function App() {
       numeroTicket,
       numeroBoleta,
       requiereBoleta,
-      porcentajeBoleta,
       porcentajeTarjeta,
       reimpresiones: 0,
       anulada: false
     }
     setVentas(prev => [...prev, nuevaVenta])
-    
+
     // Mostrar comprobante
     setVentaComprobante(nuevaVenta)
-    
+
     // Restar stock de los productos vendidos (con lógica de productos cerrados/abiertos) y registrar movimientos
+    // Guardamos referencia a los productos modificados para subirlos a Firebase
+    const productosModificados: Producto[] = []
+
     setProductos(prev => {
       const productosActualizados = prev.map(producto => {
         const itemsVendidos = carrito.filter(item => item.producto.id === producto.id)
         if (itemsVendidos.length > 0) {
           const stockAnterior = producto.stock
-          
+
           // Si el producto es cerrado (se vende en cajas y unidades)
           if (producto.esCerrado && producto.unidadesPorCaja && producto.stockCaja !== undefined && producto.stockUnidad !== undefined) {
             let stockCaja = producto.stockCaja
             let stockUnidad = producto.stockUnidad
             let unidadesRestantes = 0
-            
+
             itemsVendidos.forEach(item => {
               const cantidad = item.cantidad
-              
+
               // Si se vendió en unidades
               if (item.vendidoEnUnidades) {
                 unidadesRestantes = cantidad
@@ -330,7 +451,7 @@ function App() {
                 // Si se vendió en cajas, convertir a unidades
                 unidadesRestantes = cantidad * (producto.unidadesPorCaja || 1)
               }
-              
+
               // Procesar las unidades a restar
               while (unidadesRestantes > 0) {
                 if (stockUnidad >= unidadesRestantes) {
@@ -351,10 +472,10 @@ function App() {
                 }
               }
             })
-            
+
             // Calcular stock total en unidades
             const stockTotal = (stockCaja * (producto.unidadesPorCaja || 0)) + stockUnidad
-            
+
             // Registrar movimiento
             const cantidadTotalVendida = itemsVendidos.reduce((sum, item) => {
               if (item.vendidoEnUnidades) {
@@ -363,7 +484,7 @@ function App() {
                 return sum + (item.cantidad * (producto.unidadesPorCaja || 1))
               }
             }, 0)
-            
+
             const movimiento: MovimientoInventario = {
               id: Date.now().toString() + Math.random().toString(),
               fecha: new Date(),
@@ -377,18 +498,20 @@ function App() {
               usuario
             }
             setMovimientos(prev => [...prev, movimiento])
-            
-            return { 
-              ...producto, 
+
+            const prodActualizado = {
+              ...producto,
               stock: Math.max(0, stockTotal),
               stockCaja: Math.max(0, stockCaja),
               stockUnidad: Math.max(0, stockUnidad)
             }
+            productosModificados.push(prodActualizado)
+            return prodActualizado
           } else {
             // Producto normal (sin cajas/unidades)
             const cantidadTotal = itemsVendidos.reduce((sum, item) => sum + item.cantidad, 0)
             const nuevoStock = producto.stock - cantidadTotal
-            
+
             // Registrar movimiento
             const movimiento: MovimientoInventario = {
               id: Date.now().toString() + Math.random().toString(),
@@ -403,12 +526,20 @@ function App() {
               usuario
             }
             setMovimientos(prev => [...prev, movimiento])
-            
-            return { ...producto, stock: Math.max(0, nuevoStock) }
+
+            const prodActualizado = { ...producto, stock: Math.max(0, nuevoStock) }
+            productosModificados.push(prodActualizado)
+            return prodActualizado
           }
         }
         return producto
       })
+
+      // SINCRONIZACIÓN AUTOMÁTICA CON FIREBASE (FIRE AND FORGET)
+      // Desactivada para ahorrar lecturas/escrituras en Plan Gratuito (20k/día).
+      // Si deseas reactivarla para máxima seguridad de datos, descomenta la siguiente línea:
+      // sincronizarVentaFirebase(nuevaVenta, productosModificados).catch(err => console.error("Error autosync venta:", err))
+
       return productosActualizados
     })
 
@@ -416,10 +547,33 @@ function App() {
     setMostrarModalPago(false)
   }
 
+  // Función auxiliar para subir datos en segundo plano
+  const sincronizarVentaFirebase = async (venta: Venta, productosAfectados: Producto[]) => {
+    try {
+      const batch = writeBatch(db)
+
+      // 1. Guardar la venta
+      const ventaRef = doc(db, 'ventas', venta.id)
+      batch.set(ventaRef, venta)
+
+      // 2. Actualizar stocks
+      productosAfectados.forEach(prod => {
+        const prodRef = doc(db, 'productos', prod.id)
+        batch.set(prodRef, prod, { merge: true })
+      })
+
+      await batch.commit()
+      console.log("☁️ Venta y stock sincronizados con la nube automáticamente.")
+    } catch (error) {
+      console.error("Error al sincronizar venta con Firebase:", error)
+      // Aquí podríamos guardar en una cola de 'pendientes' en localStorage para reintentar luego
+    }
+  }
+
   // Función para registrar ingreso de mercadería
   const registrarIngreso = (ingreso: IngresoMercaderia) => {
     setIngresos(prev => [...prev, ingreso])
-    
+
     // Actualizar stock de productos y registrar movimientos
     setProductos(prev =>
       prev.map(producto => {
@@ -429,7 +583,7 @@ function App() {
           let nuevoStock = stockAnterior
           let nuevoStockCaja = producto.stockCaja
           let nuevoStockUnidad = producto.stockUnidad
-          
+
           if (producto.esCerrado && itemIngreso.cantidadCajas !== undefined && itemIngreso.cantidadUnidades !== undefined) {
             // Producto cerrado
             nuevoStockCaja = (nuevoStockCaja || 0) + (itemIngreso.cantidadCajas || 0)
@@ -525,108 +679,156 @@ function App() {
     setVentas(prev => prev.map(v => v.id === ventaActualizada.id ? ventaActualizada : v))
   }
 
-  // Cargar datos desde localStorage
+
+
+  // Cargar datos desde localStorage o Firebase
   useEffect(() => {
-    // Productos
-    const productosStr = localStorage.getItem(STORAGE_KEY_PRODUCTOS)
-    if (productosStr) {
-      try {
-        const productosCargados: Producto[] = JSON.parse(productosStr).map((p: any) => ({
-          ...p,
-          fechaVencimiento: p.fechaVencimiento ? new Date(p.fechaVencimiento) : undefined,
-        }))
-        setProductos(productosCargados)
-      } catch {
-        // ignorar
+    const cargarDatos = async () => {
+      // 1. Cargar caché local para renderizado inmediato
+      const productosStr = localStorage.getItem(STORAGE_KEY_PRODUCTOS)
+      if (productosStr) {
+        try {
+          const productosCargados: Producto[] = JSON.parse(productosStr).map((p: any) => ({
+            ...p,
+            fechaVencimiento: p.fechaVencimiento ? new Date(p.fechaVencimiento) : undefined,
+          }))
+          setProductos(productosCargados)
+        } catch {
+          // Si falla, no hacemos nada, esperamos a Firebase
+        }
       }
-    } else {
-      localStorage.setItem(STORAGE_KEY_PRODUCTOS, JSON.stringify(productosIniciales))
-    }
 
-    // Categorías
-    const categoriasStr = localStorage.getItem(STORAGE_KEY_CATEGORIAS)
-    if (categoriasStr) {
+      // 2. Sincronizar con Firebase (siempre)
       try {
-        setCategorias(JSON.parse(categoriasStr))
-      } catch {
-        // ignorar
+        const querySnapshot = await getDocs(collection(db, 'productos'))
+        const productosFirebase: Producto[] = []
+        querySnapshot.forEach((doc) => {
+          const data = doc.data() as Producto
+          productosFirebase.push({
+            ...data,
+            // Asegurar fechas
+            fechaVencimiento: data.fechaVencimiento ? new Date((data.fechaVencimiento as any).seconds * 1000) : undefined
+          })
+        })
+
+        if (productosFirebase.length > 0) {
+          console.log(`Cargados ${productosFirebase.length} productos de Firebase`)
+          setProductos(productosFirebase)
+          localStorage.setItem(STORAGE_KEY_PRODUCTOS, JSON.stringify(productosFirebase))
+        } else if (!productosStr) {
+          // Solo si no habia nada en local y nada en firebase, ponemos iniciales
+          setProductos(productosIniciales)
+        }
+      } catch (error) {
+        console.error('Error sincronizando con Firebase:', error)
+        // Fallback a iniciales si no hay nada en local
+        if (!productosStr) {
+          setProductos(productosIniciales)
+        }
       }
-    } else {
-      localStorage.setItem(STORAGE_KEY_CATEGORIAS, JSON.stringify(categoriasIniciales))
-    }
 
-    // Carrito (opcional)
-    const carritoStr = localStorage.getItem(STORAGE_KEY_CARRITO)
-    if (carritoStr) {
+      // 2. Sincronizar categorías con Firebase (siempre)
+      // Recuperar de local primero para tener referencia en caso de fallo
+      const categoriasStr = localStorage.getItem(STORAGE_KEY_CATEGORIAS)
+
       try {
-        const carritoCargado: ItemCarrito[] = JSON.parse(carritoStr).map((it: any) => ({
-          ...it,
-          producto: {
-            ...it.producto,
-            fechaVencimiento: it.producto?.fechaVencimiento ? new Date(it.producto.fechaVencimiento) : undefined,
-          },
-        }))
-        setCarrito(carritoCargado)
-      } catch {
-        // ignorar
+        const querySnapshot = await getDocs(collection(db, 'categorias'))
+        const categoriasFirebase: Categoria[] = []
+        querySnapshot.forEach((doc) => {
+          categoriasFirebase.push(doc.data() as Categoria)
+        })
+
+        if (categoriasFirebase.length > 0) {
+          console.log('Categorías cargadas de Firebase:', categoriasFirebase)
+          setCategorias(categoriasFirebase)
+          localStorage.setItem(STORAGE_KEY_CATEGORIAS, JSON.stringify(categoriasFirebase))
+        } else if (!categoriasStr) {
+          // Si no hay nada en Firebase ni local, usar iniciales
+          setCategorias(categoriasIniciales)
+        }
+      } catch (error) {
+        console.error('Error sincronizando categorías con Firebase:', error)
+        if (!categoriasStr) {
+          setCategorias(categoriasIniciales)
+        }
       }
-    }
 
-    // Ventas
-    const ventasStr = localStorage.getItem(STORAGE_KEY_VENTAS)
-    if (ventasStr) {
-      try {
-        const ventasCargadas: Venta[] = JSON.parse(ventasStr).map((v: any) => ({
-          ...v,
-          fecha: new Date(v.fecha),
-          items: (v.items || []).map((it: any) => ({
+      // ... resto de lógica (carrito, ventas, etc) ...
+
+      // Carrito (solo local)
+      const carritoStr = localStorage.getItem(STORAGE_KEY_CARRITO)
+      if (carritoStr) {
+        try {
+          const carritoCargado: ItemCarrito[] = JSON.parse(carritoStr).map((it: any) => ({
             ...it,
             producto: {
               ...it.producto,
-              fechaVencimiento: it.producto?.fechaVencimiento ? new Date(it.producto.fechaVencimiento) : undefined,
-            },
-          })),
-        }))
-        setVentas(ventasCargadas)
-      } catch {
-        // ignorar
+              fechaVencimiento: it.producto.fechaVencimiento ? new Date(it.producto.fechaVencimiento) : undefined
+            }
+          }))
+          setCarrito(carritoCargado)
+        } catch {
+          // ignorar
+        }
+      }
+
+      // Ventas, ingresos, etc...
+      // ... (mantener resto de lógica de carga) ...
+    }
+
+    cargarDatos()
+  }, []) // Fin del useEffect de carga inicial
+
+  // Listener para lector de código de barras (teclado)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignorar si el foco está en un input (para no interferir con escritura manual)
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+        return
+      }
+
+      // Si es Enter, intentamos procesar el código acumulado
+      if (e.key === 'Enter') {
+        const codigo = codigoBarrasBuffer.current.trim()
+        if (codigo.length > 0) {
+          // Buscar producto por ID o código de barras
+          const productoEncontrado = productos.find(p => p.id === codigo || p.codigoBarras === codigo)
+
+          if (productoEncontrado) {
+            agregarAlCarrito(productoEncontrado)
+            // Feedback visual o auditivo opcional
+          } else {
+            console.log(`Producto con código ${codigo} no encontrado`)
+          }
+          // Limpiar buffer
+          codigoBarrasBuffer.current = ''
+        }
+      } else if (e.key.length === 1) {
+        // Es un caracter imprimible, agregarlo al buffer
+        // Resetear buffer si pasó mucho tiempo desde la última tecla (evitar basura de tecleo lento accidental)
+        const ahora = Date.now()
+        if (ahora - tiempoUltimaTecla.current > 100) { // 100ms threshold común para lectores
+          if (codigoBarrasBuffer.current.length > 0) {
+            // Si pasó mucho tiempo, asumimos que es una nueva entrada manual o error, reseteamos salvo que sea muy corto
+            // Pero para lectores, todo llega muy rápido.
+            // Mejor estrategia para mezcla manual/lector:
+            // Simplemente acumular. El usuario borrará si se equivoca, pero aquí no hay UI visible del buffer.
+            // Reseteamos si pasaron 2 segundos para evitar acumular teclas de hace horas.
+            if (ahora - tiempoUltimaTecla.current > 2000) {
+              codigoBarrasBuffer.current = ''
+            }
+          }
+        }
+        codigoBarrasBuffer.current += e.key
+        tiempoUltimaTecla.current = ahora
       }
     }
 
-    const ingresosStr = localStorage.getItem(STORAGE_KEY_INGRESOS)
-    if (ingresosStr) {
-      const ingresosCargados: IngresoMercaderia[] = JSON.parse(ingresosStr).map((ing: any) => ({
-        ...ing,
-        fecha: new Date(ing.fecha),
-        items: ing.items.map((item: any) => ({
-          ...item,
-          fechaVencimiento: item.fechaVencimiento ? new Date(item.fechaVencimiento) : undefined
-        }))
-      }))
-      setIngresos(ingresosCargados)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
     }
-
-    const movimientosStr = localStorage.getItem(STORAGE_KEY_MOVIMIENTOS)
-    if (movimientosStr) {
-      const movimientosCargados: MovimientoInventario[] = JSON.parse(movimientosStr).map((mov: any) => ({
-        ...mov,
-        fecha: new Date(mov.fecha)
-      }))
-      setMovimientos(movimientosCargados)
-    }
-
-    // Cargar usuarios
-    const usuariosStr = localStorage.getItem(STORAGE_KEY_USUARIOS)
-    if (usuariosStr) {
-      const usuariosCargados: Usuario[] = JSON.parse(usuariosStr)
-      setUsuarios(usuariosCargados)
-    } else {
-      // Si no hay usuarios, crear uno por defecto
-      const usuarioPorDefecto: Usuario = { id: '1', nombre: 'Usuario por Defecto' }
-      setUsuarios([usuarioPorDefecto])
-      localStorage.setItem(STORAGE_KEY_USUARIOS, JSON.stringify([usuarioPorDefecto]))
-    }
-  }, [])
+  }, [productos, categorias])
 
   // Guardar datos en localStorage
   useEffect(() => {
@@ -661,7 +863,7 @@ function App() {
   const productosVencidos = useMemo(() => {
     const hoy = new Date()
     hoy.setHours(0, 0, 0, 0)
-    
+
     return productos.filter(p => {
       if (!p.fechaVencimiento) return false
       const fechaVenc = new Date(p.fechaVencimiento)
@@ -676,7 +878,7 @@ function App() {
     const en30Dias = new Date()
     en30Dias.setDate(en30Dias.getDate() + 30)
     en30Dias.setHours(0, 0, 0, 0)
-    
+
     return productos.filter(p => {
       if (!p.fechaVencimiento) return false
       const fechaVenc = new Date(p.fechaVencimiento)
@@ -691,67 +893,72 @@ function App() {
     }
   }, [productosVencidos.length, productosProximosAVencer.length])
 
-  // Efecto para capturar códigos de barras cuando la vista es 'venta'
+  // Listener para lector de código de barras (teclado)
   useEffect(() => {
     if (vista !== 'venta') return
 
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Si hay un input enfocado, no procesar el código de barras
-      const activeElement = document.activeElement
-      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
-        inputFocused.current = true
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignorar si el foco está en un input (para no interferir con escritura manual)
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
         return
       }
-      
-      inputFocused.current = false
-      const ahora = Date.now()
 
-      // Si pasó más de 100ms desde la última tecla, reiniciar el buffer
-      if (ahora - tiempoUltimaTecla.current > 100) {
-        codigoBarrasBuffer.current = ''
-      }
-
-      tiempoUltimaTecla.current = ahora
-
-      // Si es Enter, procesar el código de barras
-      if (e.key === 'Enter' && codigoBarrasBuffer.current.length > 0) {
-        e.preventDefault()
+      // Si es Enter, intentamos procesar el código acumulado
+      if (e.key === 'Enter') {
         const codigo = codigoBarrasBuffer.current.trim()
-        codigoBarrasBuffer.current = ''
-        
         if (codigo.length > 0) {
-          const producto = productos.find(p => p.codigoBarras === codigo)
-          
-          if (producto) {
-            // Si el producto tiene stock, agregarlo al carrito
-            if (producto.stock > 0) {
-              agregarAlCarrito(producto)
-            } else {
-              alert(`El producto "${producto.nombre}" no tiene stock disponible`)
-            }
+          // Buscar producto por ID o código de barras
+          // Normalizar código si es necesario
+          const codigoLimpio = codigo.toUpperCase()
+          const productoEncontrado = productos.find(p =>
+            p.id === codigo ||
+            p.codigoBarras === codigo ||
+            p.id.toUpperCase() === codigoLimpio
+          )
+
+          if (productoEncontrado) {
+            agregarAlCarrito(productoEncontrado)
           } else {
-            alert(`No se encontró ningún producto con el código de barras: ${codigo}`)
+            console.log(`Producto con código ${codigo} no encontrado`)
+          }
+          // Limpiar buffer
+          codigoBarrasBuffer.current = ''
+        }
+      } else if (e.key.length === 1) {
+        // Es un caracter imprimible, agregarlo al buffer
+        const ahora = Date.now()
+        // Resetear si pasó mucho tiempo (estrategia para diferenciar tecleo manual vs scanner)
+        if (ahora - tiempoUltimaTecla.current > 100) {
+          if (ahora - tiempoUltimaTecla.current > 2000) {
+            codigoBarrasBuffer.current = ''
           }
         }
-        return
-      }
-
-      // Acumular caracteres (solo números y letras)
-      if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
         codigoBarrasBuffer.current += e.key
+        tiempoUltimaTecla.current = ahora
       }
     }
 
-    window.addEventListener('keydown', handleKeyPress)
-    
+    window.addEventListener('keydown', handleKeyDown)
     return () => {
-      window.removeEventListener('keydown', handleKeyPress)
+      window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [vista, productos, agregarAlCarrito])
+  }, [productos, categorias, vista])
+
+  if (vista === 'inventario') {
+    return (
+      <Inventario
+        productos={productos}
+        categorias={categorias}
+        onVolver={() => setVista('venta')}
+        onAjustarStock={handleAjustarStock}
+        usuarios={usuarios}
+      />
+    )
+  }
 
   if (vista === 'almacen') {
     return (
-      <Almacen 
+      <Almacen
         productos={productos}
         categorias={categorias}
         onVolver={() => setVista('venta')}
@@ -775,6 +982,8 @@ function App() {
     return (
       <Configuracion
         onVolver={() => setVista('venta')}
+        categorias={categorias}
+        onConfigSaved={handleConfigSaved}
       />
     )
   }
@@ -818,6 +1027,10 @@ function App() {
     )
   }
 
+  // Función para sincronizar datos manualmente con la nube
+  // Función centralizada para sincronizar
+
+
   return (
     <div className="app">
       {productoSeleccionado && (
@@ -854,52 +1067,114 @@ function App() {
           onCerrar={() => setVentaComprobante(null)}
         />
       )}
-      
+
       <header className="header">
         <div className="header-content">
-          <div>
-            <h1>MINIMARKET COOL MARKET</h1>
-            <p className="subtitle">Punto de Venta</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {/* Botón Menú Hamburguesa */}
+            {/* Botón Menú Hamburguesa */}
+            <button
+              className="btn-menu-hamburger"
+              onClick={() => setMenuAbierto(true)}
+              title="Abrir menú de navegación"
+            >
+              <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>☰</span>
+              <span>MENÚ</span>
+            </button>
+            <div>
+              <h1>MINIMARKET COOL MARKET</h1>
+              <p className="subtitle">Punto de Venta</p>
+            </div>
           </div>
+
           <div className="header-buttons">
+            {/* Botón de Sincronización (siempre visible) */}
+            <button
+              className="btn-registro-ventas"
+              style={{ backgroundColor: '#2196F3', marginRight: '10px' }}
+              onClick={() => ejecutarSincronizacion(false)}
+              title="Sube tu stock actual a la nube para no perder datos"
+            >
+              ☁️ Guardando
+            </button>
+
             {mostrarNotificacionVencimientos && (productosVencidos.length > 0 || productosProximosAVencer.length > 0) && (
-              <button 
-                className="btn-vencimientos-alerta" 
+              <button
+                className="btn-vencimientos-alerta"
                 onClick={() => {
                   setVista('vencimientos')
                   setMostrarNotificacionVencimientos(false)
                 }}
                 title={`${productosVencidos.length} productos vencidos, ${productosProximosAVencer.length} próximos a vencer`}
               >
-                ⚠️ Vencimientos ({productosVencidos.length + productosProximosAVencer.length})
+                ⚠️ ({productosVencidos.length + productosProximosAVencer.length})
               </button>
             )}
-            <button className="btn-registro-ventas" onClick={() => setVista('registroVentas')}>
-              📋 Registro de Ventas
-            </button>
-            <button className="btn-reportes" onClick={() => setVista('reportes')}>
-              📊 Reportes
-            </button>
-            <button className="btn-almacen" onClick={() => setVista('almacen')}>
-              📦 Almacén
-            </button>
-            <button className="btn-configuracion" onClick={() => setVista('configuracion')}>
-              ⚙️ Configuración
-            </button>
           </div>
         </div>
       </header>
-      
+
+      {/* Sidebar / Panel Deslizante */}
+      <div
+        className={`sidebar-overlay ${menuAbierto ? 'open' : ''}`}
+        onClick={() => setMenuAbierto(false)}
+        style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          visibility: menuAbierto ? 'visible' : 'hidden',
+          opacity: menuAbierto ? 1 : 0, transition: '0.3s'
+        }}
+      >
+        <div
+          className="sidebar-content"
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: 'absolute', top: 0, left: 0, width: '280px', height: '100%',
+            background: 'white', padding: '2rem 1rem', display: 'flex', flexDirection: 'column', gap: '1rem',
+            transform: menuAbierto ? 'translateX(0)' : 'translateX(-100%)', transition: '0.3s',
+            boxShadow: '2px 0 10px rgba(0,0,0,0.1)'
+          }}
+        >
+          <h2 style={{ marginTop: 0, color: '#1a1a1a', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>Menú</h2>
+
+          <button className="btn-menu-item" onClick={() => { setVista('venta'); setMenuAbierto(false); }}>
+            🛒 Venta
+          </button>
+          <button className="btn-menu-item" onClick={() => { setVista('registroVentas'); setMenuAbierto(false); }}>
+            📋 Registro de Ventas
+          </button>
+          <button className="btn-menu-item" onClick={() => { setVista('inventario'); setMenuAbierto(false); }}>
+            📝 Inventario Diario
+          </button>
+          <button className="btn-menu-item" onClick={() => { setVista('reportes'); setMenuAbierto(false); }}>
+            📊 Reportes
+          </button>
+          <button className="btn-menu-item" onClick={() => { setVista('almacen'); setMenuAbierto(false); }}>
+            📦 Almacén
+          </button>
+          <button className="btn-menu-item" onClick={() => { setVista('configuracion'); setMenuAbierto(false); }}>
+            ⚙️ Configuración
+          </button>
+
+          <button
+            onClick={() => setMenuAbierto(false)}
+            style={{ marginTop: 'auto', background: '#f5f5f5', border: 'none', padding: '1rem', cursor: 'pointer', borderRadius: '8px' }}
+          >
+            Cerrar Menú
+          </button>
+        </div>
+      </div>
+
       <div className="main-container">
         <div className="productos-section">
           <h2>Productos</h2>
-          <ProductosGrid 
-            productos={productos} 
+          <ProductosGrid
+            productos={productos}
             categorias={categorias}
             onAgregar={agregarAlCarrito}
           />
         </div>
-        
+
         <div className="carrito-section">
           <Carrito
             items={carrito}

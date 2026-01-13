@@ -141,10 +141,29 @@
 
 .subcategoria-badge-carrito {
   display: inline-block;
-  margin-left: 0.375rem;
   font-size: 0.625rem;
   padding: 0.125rem 0.375rem;
   background: var(--primary);
+  color: white;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.marca-badge-carrito {
+  display: inline-block;
+  font-size: 0.625rem;
+  padding: 0.125rem 0.375rem;
+  background: #6366f1;
+  color: white;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.presentacion-badge-carrito {
+  display: inline-block;
+  font-size: 0.625rem;
+  padding: 0.125rem 0.375rem;
+  background: #8b5cf6;
   color: white;
   border-radius: 3px;
   font-weight: 500;

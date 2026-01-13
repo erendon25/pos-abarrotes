@@ -6,6 +6,8 @@
 export interface Producto {
   id: string
   nombre: string
+  marca?: string // Marca del producto (ej: "Gloria", "Primor")
+  presentacion?: string // Presentación/tamaño (ej: "1kg", "500g", "Lata 400g")
   precio: number // Precio base
   preciosPorSubcategoria?: Record<string, number> // Precios por subcategoría
   categoria: string

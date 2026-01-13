@@ -1,0 +1,34 @@
+[
+    {
+        "nombre": "Granos",
+        "subcategorias": []
+    },
+    {
+        "nombre": "Aceites",
+        "subcategorias": []
+    },
+    {
+        "nombre": "Endulzantes",
+        "subcategorias": []
+    },
+    {
+        "nombre": "Condimentos",
+        "subcategorias": []
+    },
+    {
+        "nombre": "Lácteos",
+        "subcategorias": []
+    },
+    {
+        "nombre": "Panadería",
+        "subcategorias": []
+    },
+    {
+        "nombre": "Bebidas",
+        "subcategorias": []
+    },
+    {
+        "nombre": "Limpieza",
+        "subcategorias": []
+    }
+]

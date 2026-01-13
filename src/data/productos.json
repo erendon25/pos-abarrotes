@@ -1,0 +1,86 @@
+[
+    {
+        "id": "1",
+        "nombre": "Arroz 1kg",
+        "precio": 12.50,
+        "categoria": "Granos",
+        "stock": 50
+    },
+    {
+        "id": "2",
+        "nombre": "Frijoles 1kg",
+        "precio": 18.00,
+        "categoria": "Granos",
+        "stock": 30
+    },
+    {
+        "id": "3",
+        "nombre": "Aceite 1L",
+        "precio": 25.00,
+        "categoria": "Aceites",
+        "stock": 40
+    },
+    {
+        "id": "4",
+        "nombre": "Azúcar 1kg",
+        "precio": 15.00,
+        "categoria": "Endulzantes",
+        "stock": 35
+    },
+    {
+        "id": "5",
+        "nombre": "Sal 1kg",
+        "precio": 8.50,
+        "categoria": "Condimentos",
+        "stock": 45
+    },
+    {
+        "id": "6",
+        "nombre": "Leche 1L",
+        "precio": 16.00,
+        "categoria": "Lácteos",
+        "stock": 25
+    },
+    {
+        "id": "7",
+        "nombre": "Huevos x12",
+        "precio": 32.00,
+        "categoria": "Lácteos",
+        "stock": 20
+    },
+    {
+        "id": "8",
+        "nombre": "Pan Bimbo",
+        "precio": 22.00,
+        "categoria": "Panadería",
+        "stock": 15
+    },
+    {
+        "id": "9",
+        "nombre": "Coca Cola 2L",
+        "precio": 28.00,
+        "categoria": "Bebidas",
+        "stock": 30
+    },
+    {
+        "id": "10",
+        "nombre": "Agua 1.5L",
+        "precio": 12.00,
+        "categoria": "Bebidas",
+        "stock": 50
+    },
+    {
+        "id": "11",
+        "nombre": "Jabón",
+        "precio": 14.00,
+        "categoria": "Limpieza",
+        "stock": 40
+    },
+    {
+        "id": "12",
+        "nombre": "Detergente",
+        "precio": 18.50,
+        "categoria": "Limpieza",
+        "stock": 25
+    }
+]

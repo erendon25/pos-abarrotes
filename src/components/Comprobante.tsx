@@ -164,6 +164,12 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
       const total = precio * item.cantidad
       
       let nombreProducto = item.producto.nombre
+      if (item.producto.marca) {
+        nombreProducto += ` - ${item.producto.marca}`
+      }
+      if (item.producto.presentacion) {
+        nombreProducto += ` ${item.producto.presentacion}`
+      }
       if (item.subcategoriaSeleccionada) {
         nombreProducto += ` (${item.subcategoriaSeleccionada})`
       }
@@ -332,6 +338,12 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
                       <tr key={index}>
                         <td>
                           {item.producto.nombre}
+                          {item.producto.marca && (
+                            <span className="marca-badge-comprobante"> {item.producto.marca}</span>
+                          )}
+                          {item.producto.presentacion && (
+                            <span className="presentacion-badge-comprobante"> {item.producto.presentacion}</span>
+                          )}
                           {item.subcategoriaSeleccionada && (
                             <span className="subcategoria-badge-comprobante">
                               {item.subcategoriaSeleccionada}

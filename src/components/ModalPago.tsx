@@ -8,7 +8,6 @@ interface ModalPagoProps {
     metodosPago: MetodoPago[], 
     vuelto: number, 
     requiereBoleta: boolean,
-    porcentajeBoleta?: number,
     usuario?: Usuario,
     porcentajeTarjeta?: number
   ) => void
@@ -21,9 +20,6 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
   const [montoYape, setMontoYape] = useState('')
   const [montoTarjeta, setMontoTarjeta] = useState('')
   const [requiereBoleta, setRequiereBoleta] = useState(false)
-  const [porcentajeBoleta, setPorcentajeBoleta] = useState(() => {
-    return localStorage.getItem('pos_porcentaje_boleta') || '18'
-  })
   const [aplicarPorcentajeTarjeta, setAplicarPorcentajeTarjeta] = useState(false)
   const [porcentajeTarjeta, setPorcentajeTarjeta] = useState(() => {
     return localStorage.getItem('pos_porcentaje_tarjeta') || '3'
@@ -53,20 +49,8 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
     return metodosPago.reduce((sum, metodo) => sum + metodo.monto, 0)
   }
 
-  const calcularPorcentajeAdicional = () => {
-    let adicional = 0
-    
-    // Porcentaje por boleta (sobre el subtotal)
-    if (requiereBoleta && porcentajeBoleta) {
-      const porcentaje = parseFloat(porcentajeBoleta) || 0
-      adicional += total * (porcentaje / 100)
-    }
-    
-    return adicional
-  }
-
   const calcularTotalConBoleta = () => {
-    return total + calcularPorcentajeAdicional()
+    return total
   }
 
   const calcularPorcentajeTarjetaAdicional = () => {
@@ -122,13 +106,11 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
   const totalPagado = calcularTotalPagado()
   const vuelto = calcularVuelto()
   const faltaPagar = totalConAdicionales - totalPagado
-  const porcentajeAdicional = calcularPorcentajeAdicional()
   const porcentajeTarjetaAdicional = calcularPorcentajeTarjetaAdicional()
 
   const puedeConfirmar = totalPagado >= totalConAdicionales
 
   const handleConfirmar = () => {
-    const porcentajeBoletaNum = requiereBoleta ? (parseFloat(porcentajeBoleta) || 0) : undefined
     const porcentajeTarjetaNum = aplicarPorcentajeTarjeta ? (parseFloat(porcentajeTarjeta) || 0) : undefined
     const usuario = usuarios.find(u => u.id === usuarioSeleccionado)
     
@@ -149,7 +131,6 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
         metodosPagoFinal, 
         vueltoFinal, 
         requiereBoleta,
-        porcentajeBoletaNum,
         usuario,
         porcentajeTarjetaNum
       )
@@ -188,12 +169,6 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
               <span className="total-label-pago">Subtotal:</span>
               <span className="total-amount-pago">S/ {total.toFixed(2)}</span>
             </div>
-            {porcentajeAdicional > 0 && (
-              <div className="adicional-info">
-                <span>Adicional por boleta ({porcentajeBoleta}%):</span>
-                <span>S/ {porcentajeAdicional.toFixed(2)}</span>
-              </div>
-            )}
             {porcentajeTarjetaAdicional > 0 && (
               <div className="adicional-info">
                 <span>Adicional por tarjeta ({porcentajeTarjeta}%):</span>
@@ -220,26 +195,6 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
                 <span>Requiere Boleta</span>
               </label>
               
-              {requiereBoleta && (
-                <div className="boleta-info">
-                  <div className="form-group-factura">
-                    <label>% Adicional (IGV)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={porcentajeBoleta}
-                      onChange={(e) => setPorcentajeBoleta(e.target.value)}
-                      placeholder="18"
-                      className="input-factura"
-                      readOnly
-                      style={{ background: '#f3f4f6', cursor: 'not-allowed' }}
-                      title="Configurado en Configuración"
-                    />
-                    <span className="config-hint">Configurado en Configuración</span>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Checkbox de porcentaje por tarjeta */}

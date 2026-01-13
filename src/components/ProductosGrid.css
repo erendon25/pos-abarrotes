@@ -120,6 +120,24 @@
   font-weight: 500;
 }
 
+.marca-badge-lista {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.4rem;
+  background: #6366f1;
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.presentacion-badge-lista {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.4rem;
+  background: #8b5cf6;
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
 .producto-categoria-lista {
   margin: 0;
   font-size: 0.875rem;

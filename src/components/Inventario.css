@@ -1,0 +1,148 @@
+.inventario-container {
+  padding: 1rem;
+  background-color: #f5f7eb;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.inventario-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.inventario-header h1 {
+  font-size: 2rem;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.inventario-controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 300px;
+  padding: 0.8rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.btn-cargar-dia {
+  background-color: #0d9488; /* Teal */
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.inventario-table-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.inventario-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inventario-table th {
+  text-align: left;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+  color: #64748b;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+.inventario-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.input-stock {
+  width: 80px;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.input-stock.diferencia {
+  border-color: #f59e0b;
+  background-color: #fffbeb;
+}
+
+.diff-positive {
+  color: #ef4444; /* Rojo si falta/sobra algo crítico */
+  font-weight: bold;
+}
+
+.diff-negative {
+  color: #10b981;
+  font-weight: bold;
+}
+
+.select-motivo {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  width: 100%;
+}
+
+.btn-ajustar {
+  background-color: #f59e0b;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-ajustar:hover {
+  background-color: #d97706;
+}
+
+.inventario-summary {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+}
+
+.summary-card h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.summary-card p {
+  margin: 0.5rem 0 0;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #1a1a1a;
+}
