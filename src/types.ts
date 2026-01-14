@@ -21,6 +21,7 @@ export interface Producto {
   stockCaja?: number // Stock en cajas cerradas
   stockUnidad?: number // Stock en unidades sueltas
   precioUnidad?: number // Precio por unidad (si es diferente al precio base)
+  sincronizado?: boolean // true si ya está en la nube, false si hay cambios pendientes
 }
 
 export interface ItemCarrito {

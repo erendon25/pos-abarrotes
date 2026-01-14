@@ -68,7 +68,8 @@ export default function Almacen({
     const productoActualizado: Producto = {
       ...formularioProducto as Producto,
       stock: stockTotal,
-      preciosPorSubcategoria: Object.keys(preciosSubcategoria).length > 0 ? preciosSubcategoria : undefined
+      preciosPorSubcategoria: Object.keys(preciosSubcategoria).length > 0 ? preciosSubcategoria : undefined,
+      sincronizado: false
     }
 
     const productosActualizados = productos.map(p =>
@@ -127,7 +128,8 @@ export default function Almacen({
       unidadesPorCaja: formularioProducto.unidadesPorCaja || undefined,
       stockCaja: formularioProducto.stockCaja || undefined,
       stockUnidad: formularioProducto.stockUnidad || undefined,
-      precioUnidad: formularioProducto.precioUnidad || undefined
+      precioUnidad: formularioProducto.precioUnidad || undefined,
+      sincronizado: false
     }
 
     onActualizarProductos([...productos, nuevoProducto])

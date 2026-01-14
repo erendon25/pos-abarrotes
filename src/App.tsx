@@ -133,28 +133,45 @@ function App() {
 
   // Función centralizada para sincronizar
   const ejecutarSincronizacion = async (silencioso = false) => {
+    // Filtrar solo lo que falta subir para ahorrar cuota
+    const productosPendientes = productos.filter(p => !p.sincronizado)
+
+    if (productosPendientes.length === 0) {
+      if (!silencioso) alert('✅ Todo está actualizado. No hay cambios pendientes.')
+      else console.log('Nada que sincronizar.')
+      return
+    }
+
     if (!silencioso) {
-      if (!window.confirm('¿Seguro que deseas actualizar la nube? Esto sobreescribirá el stock en la nube con lo que tienes aquí.')) {
+      if (!window.confirm(`¿Sincronizar ${productosPendientes.length} cambios con la nube?`)) {
         return
       }
     }
 
-    console.log('Iniciando sincronización con la nube...')
+    console.log(`Iniciando sincronización de ${productosPendientes.length} productos...`)
     try {
-      const batch = writeBatch(db)
+      // Firebase limita batch a 500 operaciones. Procesar en chunks.
+      const chunks = []
+      for (let i = 0; i < productosPendientes.length; i += 450) {
+        chunks.push(productosPendientes.slice(i, i + 450))
+      }
 
-      // Subir todos los productos
-      productos.forEach(p => {
-        const ref = doc(db, 'productos', p.id)
-        // Sanitizar objeto para eliminar undefined (Firebase no lo soporta)
-        const data = JSON.parse(JSON.stringify(p))
-        // Asegurar que fechaVencimiento se maneje bien si es string o fecha
-        // (JSON.parse lo vuelve string si era Date, pero undefined lo elimina que es lo que queremos)
+      for (const chunk of chunks) {
+        const batch = writeBatch(db)
+        chunk.forEach(p => {
+          const ref = doc(db, 'productos', p.id)
+          // Sanitizar y marcar como sincronizado en la nube
+          const pSubida = { ...p, sincronizado: true }
+          const data = JSON.parse(JSON.stringify(pSubida))
+          batch.set(ref, data, { merge: true })
+        })
+        await batch.commit()
+      }
 
-        batch.set(ref, data, { merge: true })
-      })
-
-      await batch.commit()
+      // Marcar localmente como sincronizados
+      const productosSincronizados = productos.map(p => ({ ...p, sincronizado: true }))
+      setProductos(productosSincronizados)
+      localStorage.setItem('pos_productos', JSON.stringify(productosSincronizados))
 
       if (!silencioso) {
         alert('✅ Sincronización completada. Tus datos están seguros en la nube.')
@@ -165,9 +182,13 @@ function App() {
       // Registrar fecha de última sync exitosa
       localStorage.setItem('ultimo_corte_nuve', new Date().toISOString())
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al sincronizar:', error)
-      if (!silencioso) alert('❌ Error al sincronizar. Revisa tu conexión.')
+      if (error.code === 'resource-exhausted') {
+        alert('⚠️ Has superado tu cuota gratuita de hoy en Firebase. Intenta mañana.')
+      } else if (!silencioso) {
+        alert('❌ Error al sincronizar. Revisa tu conexión.')
+      }
     }
   }
 
@@ -507,7 +528,8 @@ function App() {
               ...producto,
               stock: Math.max(0, stockTotal),
               stockCaja: Math.max(0, stockCaja),
-              stockUnidad: Math.max(0, stockUnidad)
+              stockUnidad: Math.max(0, stockUnidad),
+              sincronizado: false
             }
             productosModificados.push(prodActualizado)
             return prodActualizado
@@ -531,7 +553,7 @@ function App() {
             }
             setMovimientos(prev => [...prev, movimiento])
 
-            const prodActualizado = { ...producto, stock: Math.max(0, nuevoStock) }
+            const prodActualizado = { ...producto, stock: Math.max(0, nuevoStock), sincronizado: false }
             productosModificados.push(prodActualizado)
             return prodActualizado
           }
@@ -597,7 +619,8 @@ function App() {
             stock: nuevoStock,
             stockCaja: nuevoStockCaja,
             stockUnidad: nuevoStockUnidad,
-            fechaVencimiento: itemIngreso.fechaVencimiento || producto.fechaVencimiento
+            fechaVencimiento: itemIngreso.fechaVencimiento || producto.fechaVencimiento,
+            sincronizado: false
           }
         }
         return producto
@@ -679,57 +702,77 @@ function App() {
         }
       }
 
-      // 2. Sincronizar con Firebase (siempre)
-      try {
-        const querySnapshot = await getDocs(collection(db, 'productos'))
-        const productosFirebase: Producto[] = []
-        querySnapshot.forEach((doc) => {
-          const data = doc.data() as Producto
-          productosFirebase.push({
-            ...data,
-            // Asegurar fechas
-            fechaVencimiento: data.fechaVencimiento ? new Date((data.fechaVencimiento as any).seconds * 1000) : undefined
+      // 2. Sincronizar con Firebase (SOLO SI NO HAY DATOS LOCALES para ahorrar cuota de lectura)
+      // Si ya tenemos datos en local, asumimos que son los más recientes o que el usuario sincronizará manualmente.
+      if (productosStr) {
+        console.log('✅ Datos cargados desde caché local. Saltando lectura de Firebase para ahorrar cuota.')
+      } else {
+        try {
+          console.log('☁️ No hay datos locales, descargando de Firebase...')
+          const querySnapshot = await getDocs(collection(db, 'productos'))
+          const productosFirebase: Producto[] = []
+          querySnapshot.forEach((doc) => {
+            const data = doc.data() as Producto
+            productosFirebase.push({
+              ...data,
+              // Asegurar fechas
+              fechaVencimiento: data.fechaVencimiento ? new Date((data.fechaVencimiento as any).seconds * 1000) : undefined
+            })
           })
-        })
 
-        if (productosFirebase.length > 0) {
-          console.log(`Cargados ${productosFirebase.length} productos de Firebase`)
-          setProductos(productosFirebase)
-          localStorage.setItem(STORAGE_KEY_PRODUCTOS, JSON.stringify(productosFirebase))
-        } else if (!productosStr) {
-          // Solo si no habia nada en local y nada en firebase, ponemos iniciales
-          setProductos(productosIniciales)
-        }
-      } catch (error) {
-        console.error('Error sincronizando con Firebase:', error)
-        // Fallback a iniciales si no hay nada en local
-        if (!productosStr) {
+          if (productosFirebase.length > 0) {
+            console.log(`Cargados ${productosFirebase.length} productos de Firebase`)
+            // Al venir de la nube, están sincronizados
+            const productosConSync = productosFirebase.map(p => ({ ...p, sincronizado: true }))
+            setProductos(productosConSync)
+            localStorage.setItem(STORAGE_KEY_PRODUCTOS, JSON.stringify(productosConSync))
+          } else {
+            // Solo si no habia nada en local y nada en firebase, ponemos iniciales
+            setProductos(productosIniciales)
+          }
+        } catch (error) {
+          console.error('Error sincronizando con Firebase:', error)
+          // Fallback a iniciales si no hay nada en local
           setProductos(productosIniciales)
         }
       }
 
-      // 2. Sincronizar categorías con Firebase (siempre)
+      // 2. Sincronizar categorías con Firebase (SOLO SI NO HAY LOCAL para ahorrar cuota)
       // Recuperar de local primero para tener referencia en caso de fallo
       const categoriasStr = localStorage.getItem(STORAGE_KEY_CATEGORIAS)
 
-      try {
-        const querySnapshot = await getDocs(collection(db, 'categorias'))
-        const categoriasFirebase: Categoria[] = []
-        querySnapshot.forEach((doc) => {
-          categoriasFirebase.push(doc.data() as Categoria)
-        })
+      if (categoriasStr) {
+        console.log('✅ Categorías cargadas desde caché local.')
+        // Ya se cargaron con el hook de inicialización o podríamos cargarlas aquí explícitamente si hiciera falta,
+        // pero setCategorias inicializa con localStorage si existe (ver useState inicial en App.tsx).
+        // Si no, deberíamos parsear aquí igual que productos.
+        // Revisando App.tsx arriba (no visible), setCategorias suele inicializar con un callback que lee localStorage.
+        // Pero para asegurar, si no se hizo arriba, lo hacemos aquí o asumimos que ya está.
+        // Dado que la lógica de productos hace `setProductos` explícito al leer local, voy a asumir que las categorías también necesitan ser seteadas si leemos strings.
+        // Sin embargo, en el código original de productos, la parte 1 lee localStorage.
+        // Para categorías, no vi la parte 1. Voy a agregar lectura local explícita aquí para garantizar que se carguen.
+        try {
+          setCategorias(JSON.parse(categoriasStr))
+        } catch (e) { }
+      } else {
+        try {
+          console.log('☁️ Descargando categorías de Firebase...')
+          const querySnapshot = await getDocs(collection(db, 'categorias'))
+          const categoriasFirebase: Categoria[] = []
+          querySnapshot.forEach((doc) => {
+            categoriasFirebase.push(doc.data() as Categoria)
+          })
 
-        if (categoriasFirebase.length > 0) {
-          console.log('Categorías cargadas de Firebase:', categoriasFirebase)
-          setCategorias(categoriasFirebase)
-          localStorage.setItem(STORAGE_KEY_CATEGORIAS, JSON.stringify(categoriasFirebase))
-        } else if (!categoriasStr) {
-          // Si no hay nada en Firebase ni local, usar iniciales
-          setCategorias(categoriasIniciales)
-        }
-      } catch (error) {
-        console.error('Error sincronizando categorías con Firebase:', error)
-        if (!categoriasStr) {
+          if (categoriasFirebase.length > 0) {
+            console.log('Categorías cargadas de Firebase:', categoriasFirebase)
+            setCategorias(categoriasFirebase)
+            localStorage.setItem(STORAGE_KEY_CATEGORIAS, JSON.stringify(categoriasFirebase))
+          } else {
+            // Si no hay nada en Firebase ni local, usar iniciales
+            setCategorias(categoriasIniciales)
+          }
+        } catch (error) {
+          console.error('Error sincronizando categorías con Firebase:', error)
           setCategorias(categoriasIniciales)
         }
       }
