@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Producto, Categoria } from '../types'
 import GestionCategorias from './GestionCategorias'
+import LectorCodigoBarras from './LectorCodigoBarras'
 import './Almacen.css'
+import './AlmacenMobile.css'
 
 interface AlmacenProps {
   productos: Producto[]
@@ -528,13 +530,16 @@ export default function Almacen({
 
             {/* Filtros */}
             <div className="filtros-container" style={{ display: 'flex', gap: '0.5rem' }}>
-              <input
-                type="text"
-                placeholder="🔍 Buscar..."
-                value={filtroTexto}
-                onChange={e => setFiltroTexto(e.target.value)}
-                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
-              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                <input
+                  type="text"
+                  placeholder="🔍 Buscar..."
+                  value={filtroTexto}
+                  onChange={e => setFiltroTexto(e.target.value)}
+                  style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd', width: '100%' }}
+                />
+                <LectorCodigoBarras onScan={(code: string) => setFiltroTexto(code)} />
+              </div>
 
               <select
                 value={filtroCategoria}

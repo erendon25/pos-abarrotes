@@ -1,0 +1,229 @@
+@media (max-width: 768px) {
+
+    /* Almacén Responsivo - Transformar tabla a tarjetas */
+    .productos-table {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .table-header {
+        display: none;
+        /* Ocultar cabeceras de tabla */
+    }
+
+    /* Fila convertida a Tarjeta */
+    .table-row {
+        display: flex;
+        flex-direction: column;
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        /* Sombra más suave */
+        border: 1px solid #eef2f6;
+        gap: 0.75rem;
+        position: relative;
+        /* Para posicionar elementos absolutos si se requiere */
+    }
+
+    /* Estados de stock en tarjeta */
+    .table-row.sin-stock {
+        border-left: 5px solid #ef4444;
+        background-color: #fff5f5;
+    }
+
+    .table-row.stock-bajo {
+        border-left: 5px solid #f59e0b;
+        background-color: #fffbf0;
+    }
+
+    /* Nombre y Vencimiento destacados arriba */
+    .col-nombre-vencimiento {
+        width: 100%;
+        order: 1;
+        border-bottom: 1px solid #f0f0f0;
+        padding-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .producto-nombre {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 0.25rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    /* Badges reorganizados */
+    .marca-badge-table,
+    .presentacion-badge-table,
+    .subcategoria-badge-table {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+    }
+
+    .producto-vencimiento {
+        font-size: 0.8rem;
+        color: #64748b;
+    }
+
+    /* Resto de columnas como filas clave-valor */
+    .col-categoria,
+    .col-stock,
+    .col-precio,
+    .col-codigo-barras {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.25rem 0;
+        font-size: 0.95rem;
+        color: #334155;
+    }
+
+    .col-categoria::before {
+        content: "Categoría:";
+        font-weight: 600;
+        color: #64748b;
+    }
+
+    .col-stock::before {
+        content: "Stock:";
+        font-weight: 600;
+        color: #64748b;
+    }
+
+    .col-precio::before {
+        content: "Precio:";
+        font-weight: 600;
+        color: #64748b;
+    }
+
+    .col-codigo-barras::before {
+        content: "Código:";
+        font-weight: 600;
+        color: #64748b;
+    }
+
+    /* Orden visual personalizado */
+    .col-categoria {
+        order: 2;
+    }
+
+    .col-stock {
+        order: 3;
+    }
+
+    .col-precio {
+        order: 4;
+        font-weight: 700;
+        color: #059669;
+    }
+
+    .col-codigo-barras {
+        order: 5;
+        font-size: 0.85rem;
+        color: #94a3b8;
+    }
+
+    /* Botones de acción flotantes o abajo */
+    .col-acciones {
+        width: 100%;
+        order: 6;
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 0.5rem;
+        padding-top: 0.75rem;
+        border-top: 1px dashed #e2e8f0;
+    }
+
+    .btn-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
+        border-radius: 50%;
+        /* Circulares para mejor touch */
+    }
+
+    /* Mode edición en móvil */
+    .table-row.edicion {
+        gap: 1rem;
+    }
+
+    .table-row.edicion input,
+    .table-row.edicion select {
+        width: 100%;
+        padding: 0.75rem;
+        /* Inputs más grandes para dedo */
+    }
+
+    /* Header de Almacén Mobile */
+    .almacen-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .header-actions {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .filtros-container {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .filtros-container input,
+    .filtros-container select {
+        width: 100%;
+        height: 48px;
+        /* Touch target size */
+    }
+
+    /* Estadísticas Mobile */
+    .almacen-stats {
+        flex-direction: row;
+        /* Mantener fila pero scrolleable si necesario */
+        flex-wrap: wrap;
+    }
+
+    .stat-card {
+        flex: 1 1 40%;
+        /* 2 columnas */
+        min-width: 120px;
+    }
+
+    /* Formulario flotante full screen */
+    .formulario-card {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100vh;
+        border-radius: 0;
+        z-index: 2000;
+        overflow-y: auto;
+        padding-bottom: 80px;
+        /* Espacio para botones */
+    }
+
+    .formulario-card .form-actions {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: white;
+        padding: 1rem;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        z-index: 2001;
+    }
+}
