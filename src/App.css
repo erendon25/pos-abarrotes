@@ -177,7 +177,8 @@
 }
 
 .sidebar-content {
-  position: absolute;
+  position: fixed;
+  /* Cambiado de absolute a fixed */
   top: 0;
   left: 0;
   width: 280px;
@@ -190,6 +191,10 @@
   transform: translateX(-100%);
   transition: transform 0.3s ease;
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  /* Permitir scroll si el contenido es alto (ej: landscape) */
+  z-index: 1001;
+  /* Asegurar que esté sobre todo */
 }
 
 .sidebar-overlay.open .sidebar-content {

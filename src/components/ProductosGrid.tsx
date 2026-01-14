@@ -1,5 +1,6 @@
 ﻿import { useState } from 'react'
 import { Producto, Categoria } from '../types'
+import LectorCodigoBarras from './LectorCodigoBarras'
 import './ProductosGrid.css'
 
 interface ProductosGridProps {
@@ -70,23 +71,28 @@ export default function ProductosGrid({ productos, onAgregar }: ProductosGridPro
 
   return (
     <div className="productos-container">
-      <div className="filtro-container">
-        <input
-          type="text"
-          className="filtro-input"
-          placeholder="Buscar por nombre, marca, presentación, categoría, subcategoría o código de barras..."
-          value={filtro}
-          onChange={(e) => setFiltro(e.target.value)}
-        />
-        {filtro && (
-          <button
-            className="btn-limpiar-filtro"
-            onClick={() => setFiltro('')}
-            title="Limpiar búsqueda"
-          >
-            ×
-          </button>
-        )}
+      <div className="filtro-container" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ position: 'relative', width: '100%' }}>
+          <input
+            type="text"
+            className="filtro-input"
+            placeholder="Buscar por nombre, código de barras..."
+            value={filtro}
+            onChange={(e) => setFiltro(e.target.value)}
+            style={{ width: '100%' }}
+          />
+          {filtro && (
+            <button
+              className="btn-limpiar-filtro"
+              onClick={() => setFiltro('')}
+              title="Limpiar búsqueda"
+              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)' }}
+            >
+              ×
+            </button>
+          )}
+        </div>
+        <LectorCodigoBarras onScan={(code: string) => setFiltro(code)} />
       </div>
 
       <div className="productos-lista" onScroll={handleScroll}>
