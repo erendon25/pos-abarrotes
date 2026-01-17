@@ -950,9 +950,11 @@ function App() {
             p.id.toUpperCase() === codigoLimpio
           )
 
+          // SIEMPRE llenar el filtro para feedback visual, exista o no el producto
+          setFiltro(codigo)
+
           if (productoEncontrado) {
             agregarAlCarrito(productoEncontrado)
-            setFiltro(codigo) // Llenar el filtro con el código escaneado
           } else {
             console.log(`Producto con código ${codigo} no encontrado`)
           }
