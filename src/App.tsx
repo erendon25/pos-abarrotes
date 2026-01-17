@@ -58,6 +58,7 @@ function App() {
   const [ventas, setVentas] = useState<Venta[]>([])
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null)
   const [productoCerradoSeleccionado, setProductoCerradoSeleccionado] = useState<Producto | null>(null)
+  const [filtro, setFiltro] = useState('') // Estado del filtro levantado
   const [mostrarModalPago, setMostrarModalPago] = useState(false)
   const [ventaComprobante, setVentaComprobante] = useState<Venta | null>(null)
   const [ingresos, setIngresos] = useState<IngresoMercaderia[]>([])
@@ -428,13 +429,22 @@ function App() {
     const numeroTicket = !requiereBoleta ? obtenerSiguienteTicket() : undefined
     const numeroBoleta = requiereBoleta ? obtenerSiguienteBoleta() : undefined
 
+    // Ajustar metodos de pago para restar el vuelto del efectivo
+    // Esto corrige el reporte para que la suma de pagos sea igual al total de venta (ingreso real)
+    const metodosPagoAjustados = metodosPago.map(m => {
+      if (m.tipo === 'efectivo' && vuelto > 0) {
+        return { ...m, monto: m.monto - vuelto }
+      }
+      return m
+    })
+
     // Guardar la venta en el historial
     const nuevaVenta: Venta = {
       id: Date.now().toString(),
       fecha: new Date(),
       items: [...carrito],
       total,
-      metodosPago,
+      metodosPago: metodosPagoAjustados,
       vuelto: vuelto > 0 ? vuelto : undefined,
       usuario,
       tipoComprobante,
@@ -942,6 +952,7 @@ function App() {
 
           if (productoEncontrado) {
             agregarAlCarrito(productoEncontrado)
+            setFiltro(codigo) // Llenar el filtro con el código escaneado
           } else {
             console.log(`Producto con código ${codigo} no encontrado`)
           }
@@ -1194,6 +1205,8 @@ function App() {
             productos={productos}
             categorias={categorias}
             onAgregar={agregarAlCarrito}
+            filtro={filtro}
+            setFiltro={setFiltro}
           />
         </div>
 

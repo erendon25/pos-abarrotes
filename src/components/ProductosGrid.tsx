@@ -7,16 +7,16 @@ interface ProductosGridProps {
   productos: Producto[]
   categorias: Categoria[]
   onAgregar: (producto: Producto) => void
+  filtro: string
+  setFiltro: (filtro: string) => void
 }
 
-export default function ProductosGrid({ productos, onAgregar }: ProductosGridProps) {
-  const [filtro, setFiltro] = useState('')
+export default function ProductosGrid({ productos, onAgregar, filtro, setFiltro }: ProductosGridProps) {
   const [limiteVisible, setLimiteVisible] = useState(50)
 
   // Resetear límite cuando cambia el filtro
   if (filtro !== '' && limiteVisible !== 50) {
     // Nota: Esto es un efecto secundario en render, pero React lo maneja si es un setState condicional simple
-    // O mejor usamos un useEffect para ser más puristas, pero por brevedad:
   }
 
   // Efecto para resetear cuando cambia el filtro (mejor práctica)
@@ -67,6 +67,22 @@ export default function ProductosGrid({ productos, onAgregar }: ProductosGridPro
     }
   }
 
+  const handleScan = (code: string) => {
+    setFiltro(code)
+
+    // Buscar producto exacto y agregarlo al carrito
+    const codigoLimpio = code.trim().toUpperCase()
+    const productoEncontrado = productos.find(p =>
+      p.codigoBarras === code ||
+      p.id === code ||
+      p.id.toUpperCase() === codigoLimpio
+    )
+
+    if (productoEncontrado) {
+      onAgregar(productoEncontrado)
+    }
+  }
+
   const productosVisibles = productosFiltrados.slice(0, limiteVisible)
 
   return (
@@ -92,7 +108,7 @@ export default function ProductosGrid({ productos, onAgregar }: ProductosGridPro
             </button>
           )}
         </div>
-        <LectorCodigoBarras onScan={(code: string) => setFiltro(code)} />
+        <LectorCodigoBarras onScan={handleScan} />
       </div>
 
       <div className="productos-lista" onScroll={handleScroll}>
