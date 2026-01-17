@@ -17,22 +17,24 @@ export default function RegistroVentas({ ventas, onVolver, onActualizarVenta }: 
   // Filtrar ventas por fecha
   const ventasFiltradas = ventas.filter(venta => {
     if (!filtroFechaDesde && !filtroFechaHasta) return true
-    
+
     const fechaVenta = new Date(venta.fecha)
     fechaVenta.setHours(0, 0, 0, 0)
-    
+
     if (filtroFechaDesde) {
-      const fechaDesde = new Date(filtroFechaDesde)
-      fechaDesde.setHours(0, 0, 0, 0)
+      const [year, month, day] = filtroFechaDesde.split('-').map(Number)
+      const fechaDesde = new Date(year, month - 1, day)
+      // fechaDesde ya es 00:00:00 local al crearse así
       if (fechaVenta < fechaDesde) return false
     }
-    
+
     if (filtroFechaHasta) {
-      const fechaHasta = new Date(filtroFechaHasta)
+      const [year, month, day] = filtroFechaHasta.split('-').map(Number)
+      const fechaHasta = new Date(year, month - 1, day)
       fechaHasta.setHours(23, 59, 59, 999)
       if (fechaVenta > fechaHasta) return false
     }
-    
+
     return true
   })
 
@@ -40,7 +42,7 @@ export default function RegistroVentas({ ventas, onVolver, onActualizarVenta }: 
   const ventasAnuladas = ventasFiltradas.filter(v => v.anulada)
   const totalAnulaciones = ventasAnuladas.length
   const montoAnulaciones = ventasAnuladas.reduce((sum, v) => sum + v.total, 0)
-  
+
   const boletasAnuladas = ventasAnuladas.filter(v => v.tipoComprobante === 'boleta')
   const ticketsAnulados = ventasAnuladas.filter(v => v.tipoComprobante === 'ticket')
   const montoBoletasAnuladas = boletasAnuladas.reduce((sum, v) => sum + v.total, 0)
@@ -71,11 +73,11 @@ export default function RegistroVentas({ ventas, onVolver, onActualizarVenta }: 
       alert('Esta venta ya está anulada')
       return
     }
-    
+
     if (!confirm(`¿Está seguro de anular esta ${venta.tipoComprobante === 'boleta' ? 'boleta' : 'ticket'}?`)) {
       return
     }
-    
+
     const ventaActualizada: Venta = {
       ...venta,
       anulada: true
@@ -177,8 +179,8 @@ export default function RegistroVentas({ ventas, onVolver, onActualizarVenta }: 
             {ventasFiltradas
               .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
               .map(venta => (
-                <div 
-                  key={venta.id} 
+                <div
+                  key={venta.id}
                   className={`table-row ${venta.anulada ? 'anulada' : ''}`}
                 >
                   <div className="col-fecha">{formatearFecha(venta.fecha)}</div>
@@ -203,7 +205,7 @@ export default function RegistroVentas({ ventas, onVolver, onActualizarVenta }: 
                     )}
                   </div>
                   <div className="col-acciones">
-                    <button 
+                    <button
                       className="btn-reimprimir"
                       onClick={() => handleReimprimir(venta)}
                       title={venta.anulada ? "No se puede imprimir una venta anulada" : "Reimprimir"}
@@ -212,7 +214,7 @@ export default function RegistroVentas({ ventas, onVolver, onActualizarVenta }: 
                       🖨️
                     </button>
                     {!venta.anulada && (
-                      <button 
+                      <button
                         className="btn-anular"
                         onClick={() => handleAnular(venta)}
                         title="Anular venta"

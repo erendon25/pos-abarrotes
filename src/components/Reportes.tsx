@@ -24,22 +24,24 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
   // Filtrar ventas por fecha
   const ventasFiltradas = ventas.filter(venta => {
     if (!filtroFechaDesde && !filtroFechaHasta) return true
-    
+
     const fechaVenta = new Date(venta.fecha)
     fechaVenta.setHours(0, 0, 0, 0)
-    
+
     if (filtroFechaDesde) {
-      const fechaDesde = new Date(filtroFechaDesde)
-      fechaDesde.setHours(0, 0, 0, 0)
+      const [year, month, day] = filtroFechaDesde.split('-').map(Number)
+      const fechaDesde = new Date(year, month - 1, day)
+      // fechaDesde ya es 00:00:00 local al crearse así
       if (fechaVenta < fechaDesde) return false
     }
-    
+
     if (filtroFechaHasta) {
-      const fechaHasta = new Date(filtroFechaHasta)
+      const [year, month, day] = filtroFechaHasta.split('-').map(Number)
+      const fechaHasta = new Date(year, month - 1, day)
       fechaHasta.setHours(23, 59, 59, 999)
       if (fechaVenta > fechaHasta) return false
     }
-    
+
     return true
   })
 
@@ -66,20 +68,20 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
       const categoria = item.producto.categoria
       const precio = obtenerPrecioItem(item)
       const totalItem = precio * item.cantidad
-      
+
       // Sumar a venta por categoría
       ventasPorCategoria[categoria] = (ventasPorCategoria[categoria] || 0) + totalItem
-      
+
       // Agrupar productos por categoría
       if (!productosPorCategoria[categoria]) {
         productosPorCategoria[categoria] = []
       }
-      
+
       const keyProducto = `${item.producto.nombre}-${item.subcategoriaSeleccionada || 'base'}`
       const productoExistente = productosPorCategoria[categoria].find(
         p => `${p.nombre}-${p.subcategoria || 'base'}` === keyProducto
       )
-      
+
       if (productoExistente) {
         productoExistente.cantidad += item.cantidad
         productoExistente.total += totalItem
@@ -96,20 +98,20 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
       // Agrupar por subcategoría
       const subcategoria = item.subcategoriaSeleccionada || item.producto.subcategoria || 'Sin subcategoría'
       const totalItemSub = precio * item.cantidad
-      
+
       // Sumar a venta por subcategoría
       ventasPorSubcategoria[subcategoria] = (ventasPorSubcategoria[subcategoria] || 0) + totalItemSub
-      
+
       // Agrupar productos por subcategoría
       if (!productosPorSubcategoria[subcategoria]) {
         productosPorSubcategoria[subcategoria] = []
       }
-      
+
       const keyProductoSub = `${item.producto.nombre}-${item.subcategoriaSeleccionada || 'base'}`
       const productoExistenteSub = productosPorSubcategoria[subcategoria].find(
         p => `${p.nombre}-${p.subcategoria || 'base'}` === keyProductoSub
       )
-      
+
       if (productoExistenteSub) {
         productoExistenteSub.cantidad += item.cantidad
         productoExistenteSub.total += totalItemSub
@@ -139,7 +141,7 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
     cantidad
   }))
 
-  const productoMasVendido = productosArray.length > 0 
+  const productoMasVendido = productosArray.length > 0
     ? productosArray.reduce((max, prod) => prod.cantidad > max.cantidad ? prod : max)
     : null
 
@@ -175,11 +177,12 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
 
   const formatearFecha = (fecha: string) => {
     if (!fecha) return ''
-    const date = new Date(fecha)
-    return date.toLocaleDateString('es-PE', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const [year, month, day] = fecha.split('-').map(Number)
+    const date = new Date(year, month - 1, day)
+    return date.toLocaleDateString('es-PE', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     })
   }
 
@@ -290,10 +293,10 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
                 .map(([subcategoria, total]) => {
                   const expandida = subcategoriaExpandida === subcategoria
                   const productos = productosPorSubcategoria[subcategoria] || []
-                  
+
                   return (
                     <div key={subcategoria} className="categoria-container">
-                      <div 
+                      <div
                         className="categoria-item clickeable"
                         onClick={() => toggleSubcategoria(subcategoria)}
                       >
@@ -305,7 +308,7 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
                           {expandida ? '▼' : '▶'}
                         </span>
                       </div>
-                      
+
                       {expandida && productos.length > 0 && (
                         <div className="productos-desglose">
                           <div className="desglose-header">
@@ -350,10 +353,10 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
                 .map(([categoria, total]) => {
                   const expandida = categoriaExpandida === categoria
                   const productos = productosPorCategoria[categoria] || []
-                  
+
                   return (
                     <div key={categoria} className="categoria-container">
-                      <div 
+                      <div
                         className="categoria-item clickeable"
                         onClick={() => toggleCategoria(categoria)}
                       >
@@ -365,7 +368,7 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
                           {expandida ? '▼' : '▶'}
                         </span>
                       </div>
-                      
+
                       {expandida && productos.length > 0 && (
                         <div className="productos-desglose">
                           <div className="desglose-header">
