@@ -1,6 +1,6 @@
 
 import { useEffect, useRef, useState } from 'react'
-import { Html5QrcodeScanner } from 'html5-qrcode'
+import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 
 interface LectorCodigoBarrasProps {
     onScan: (codigo: string) => void
@@ -39,10 +39,21 @@ export default function LectorCodigoBarras({
                 const scanner = new Html5QrcodeScanner(
                     "reader",
                     {
-                        fps: 10,
-                        qrbox: { width: 250, height: 250 },
+                        fps: 15,
+                        qrbox: { width: 300, height: 150 }, // Mejor para códigos de barras alargados
                         aspectRatio: 1.0,
-                        showTorchButtonIfSupported: true
+                        showTorchButtonIfSupported: true,
+                        formatsToSupport: [
+                            Html5QrcodeSupportedFormats.QR_CODE,
+                            Html5QrcodeSupportedFormats.EAN_13,
+                            Html5QrcodeSupportedFormats.EAN_8,
+                            Html5QrcodeSupportedFormats.CODE_128,
+                            Html5QrcodeSupportedFormats.CODE_39,
+                            Html5QrcodeSupportedFormats.UPC_A,
+                            Html5QrcodeSupportedFormats.UPC_E,
+                            Html5QrcodeSupportedFormats.ITF,
+                            Html5QrcodeSupportedFormats.CODABAR
+                        ]
                     },
           /* verbose= */ false
                 )
