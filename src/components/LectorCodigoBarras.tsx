@@ -39,11 +39,22 @@ export default function LectorCodigoBarras({
                 const scanner = new Html5QrcodeScanner(
                     "reader",
                     {
-                        fps: 10,
-                        qrbox: { width: 250, height: 250 },
+                        fps: 20,
+                        qrbox: (viewfinderWidth, viewfinderHeight) => {
+                            // Usar un área cuadrada del 70% de la menor dimensión para asegurar compatibilidad
+                            const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight)
+                            return {
+                                width: Math.floor(minEdgeSize * 0.7),
+                                height: Math.floor(minEdgeSize * 0.7)
+                            }
+                        },
                         showTorchButtonIfSupported: true,
-                        // Quitar aspectRatio fijo para evitar deformaciones en algunos móviles
-                        // aspectRatio: 1.0,
+                        // Configuración de video para forzar cámara trasera y mejor resolución
+                        videoConstraints: {
+                            facingMode: "environment",
+                            width: { min: 640, ideal: 1280, max: 1920 },
+                            height: { min: 480, ideal: 720, max: 1080 }
+                        },
                         experimentalFeatures: {
                             useBarCodeDetectorIfSupported: true
                         },
