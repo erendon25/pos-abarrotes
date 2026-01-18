@@ -1,101 +1,95 @@
-
 import { useEffect, useRef, useState } from 'react'
-import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode'
+import { Html5Qrcode } from 'html5-qrcode'
 
 interface LectorCodigoBarrasProps {
     onScan: (codigo: string) => void
-    onError?: (error: any) => void
-    ancho?: number
-    altura?: number
-    cerrarAlEscanear?: boolean
+    onError?: (error: string) => void
 }
 
 export default function LectorCodigoBarras({
     onScan,
-    cerrarAlEscanear = true
+    onError
 }: LectorCodigoBarrasProps) {
     const [escaneando, setEscaneando] = useState(false)
-    const scannerRef = useRef<Html5QrcodeScanner | null>(null)
-    // const [permisoCamara, setPermisoCamara] = useState<boolean | null>(null)
+    const [error, setError] = useState<string | null>(null)
+    const html5QrcodeRef = useRef<Html5Qrcode | null>(null)
+    const containerRef = useRef<HTMLDivElement>(null)
 
+    // Cleanup al desmontar
     useEffect(() => {
-        // Verificar permisos inicialmente puede ser útil para UI futura
-        // navigator.mediaDevices.getUserMedia({ video: true })
-        //   .then(() => setPermisoCamara(true))
-        //   .catch(() => setPermisoCamara(false))
-
         return () => {
-            if (scannerRef.current) {
-                scannerRef.current.clear().catch(console.error)
+            if (html5QrcodeRef.current) {
+                html5QrcodeRef.current.stop().catch(() => { })
             }
         }
     }, [])
 
-    const iniciarEscaner = () => {
+    const iniciarEscaner = async () => {
         setEscaneando(true)
-        // Pequeño delay para asegurar que el div exista
-        setTimeout(() => {
-            if (!scannerRef.current) {
-                const scanner = new Html5QrcodeScanner(
-                    "reader",
+        setError(null)
+
+        // Esperar a que el DOM se actualice
+        await new Promise(resolve => setTimeout(resolve, 100))
+
+        try {
+            const html5Qrcode = new Html5Qrcode("barcode-reader")
+            html5QrcodeRef.current = html5Qrcode
+
+            // Obtener cámaras disponibles
+            const devices = await Html5Qrcode.getCameras()
+
+            if (devices && devices.length > 0) {
+                // Preferir cámara trasera
+                const camaraTrasera = devices.find(d =>
+                    d.label.toLowerCase().includes('back') ||
+                    d.label.toLowerCase().includes('rear') ||
+                    d.label.toLowerCase().includes('trasera') ||
+                    d.label.toLowerCase().includes('environment')
+                )
+                const camaraId = camaraTrasera?.id || devices[devices.length - 1].id
+
+                await html5Qrcode.start(
+                    camaraId,
                     {
                         fps: 10,
-                        // qrbox eliminado para escanear todo el frame (mejor para códigos de barras largos)
-                        showTorchButtonIfSupported: true,
-                        experimentalFeatures: {
-                            useBarCodeDetectorIfSupported: true
-                        },
-                        formatsToSupport: [
-                            Html5QrcodeSupportedFormats.EAN_13,
-                            Html5QrcodeSupportedFormats.EAN_8,
-                            Html5QrcodeSupportedFormats.CODE_128,
-                            Html5QrcodeSupportedFormats.CODE_39,
-                            Html5QrcodeSupportedFormats.UPC_A,
-                            Html5QrcodeSupportedFormats.UPC_E,
-                            Html5QrcodeSupportedFormats.ITF,
-                            Html5QrcodeSupportedFormats.CODABAR,
-                            Html5QrcodeSupportedFormats.QR_CODE
-                        ]
+                        qrbox: { width: 280, height: 150 } // Rectangular para códigos de barras
                     },
-          /* verbose= */ false
-                )
-
-                scanner.render(
                     (decodedText) => {
                         console.log("Código detectado:", decodedText)
+                        // Detener escáner y llamar callback
+                        detenerEscaner()
                         onScan(decodedText)
-                        if (cerrarAlEscanear) {
-                            detenerEscaner()
-                        }
                     },
                     () => {
-                        // Ignorar errores de "no code detected" para no spammear
-                        // if (onError) onError(errorMessage)
+                        // Ignorar errores de frame sin código
                     }
                 )
-                scannerRef.current = scanner
+            } else {
+                throw new Error("No se encontraron cámaras disponibles")
             }
-        }, 100)
-    }
-
-    const detenerEscaner = () => {
-        if (scannerRef.current) {
-            scannerRef.current.clear()
-                .then(() => {
-                    setEscaneando(false)
-                    scannerRef.current = null
-                })
-                .catch((err) => {
-                    console.error("Error al detener scanner", err)
-                    setEscaneando(false)
-                })
-        } else {
+        } catch (err: unknown) {
+            console.error("Error al iniciar escáner:", err)
+            const errorMsg = err instanceof Error ? err.message : "Error al acceder a la cámara"
+            setError(errorMsg)
+            if (onError) onError(errorMsg)
             setEscaneando(false)
         }
     }
 
+    const detenerEscaner = async () => {
+        if (html5QrcodeRef.current) {
+            try {
+                await html5QrcodeRef.current.stop()
+                html5QrcodeRef.current = null
+            } catch (err) {
+                console.error("Error al detener scanner:", err)
+            }
+        }
+        setEscaneando(false)
+    }
+
     return (
-        <div className="lector-codigo-container">
+        <div className="lector-codigo-container" ref={containerRef}>
             {!escaneando ? (
                 <button
                     className="btn-escanear-camara"
@@ -128,28 +122,62 @@ export default function LectorCodigoBarras({
                     left: 0,
                     width: '100%',
                     height: '100%',
-                    background: 'rgba(0,0,0,0.9)',
+                    background: 'rgba(0,0,0,0.95)',
                     zIndex: 3000,
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    padding: '20px'
                 }}>
-                    <div id="reader" style={{ width: '100%', maxWidth: '500px', background: 'white', padding: '10px', borderRadius: '8px' }}></div>
+                    <div style={{
+                        color: 'white',
+                        marginBottom: '15px',
+                        fontSize: '1.2rem',
+                        textAlign: 'center'
+                    }}>
+                        📷 Apunta al código de barras
+                    </div>
+
+                    <div
+                        id="barcode-reader"
+                        style={{
+                            width: '100%',
+                            maxWidth: '400px',
+                            background: 'white',
+                            borderRadius: '12px',
+                            overflow: 'hidden'
+                        }}
+                    />
+
+                    {error && (
+                        <div style={{
+                            color: '#ef4444',
+                            marginTop: '15px',
+                            padding: '10px',
+                            background: 'rgba(255,255,255,0.1)',
+                            borderRadius: '8px',
+                            textAlign: 'center'
+                        }}>
+                            ⚠️ {error}
+                        </div>
+                    )}
+
                     <button
                         onClick={detenerEscaner}
                         style={{
                             marginTop: '20px',
-                            padding: '10px 20px',
+                            padding: '12px 30px',
                             background: '#ef4444',
                             color: 'white',
                             border: 'none',
                             borderRadius: '8px',
                             fontSize: '1.1rem',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
                         }}
                     >
-                        Cancelar Escaneo
+                        ✖ Cancelar
                     </button>
                 </div>
             )}
