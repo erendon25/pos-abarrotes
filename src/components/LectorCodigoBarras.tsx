@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 
 interface LectorCodigoBarrasProps {
@@ -9,64 +9,87 @@ export default function LectorCodigoBarras({ onScan }: LectorCodigoBarrasProps) 
     const [escaneando, setEscaneando] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const html5QrcodeRef = useRef<Html5Qrcode | null>(null)
+    const containerId = "reader-container"
 
+    // Cleanup on unmount
     useEffect(() => {
         return () => {
-            if (html5QrcodeRef.current) {
+            if (html5QrcodeRef.current?.isScanning) {
                 html5QrcodeRef.current.stop().catch(() => { })
             }
         }
     }, [])
 
-    const detenerEscaner = useCallback(() => {
-        if (html5QrcodeRef.current) {
-            html5QrcodeRef.current.stop().then(() => {
-                html5QrcodeRef.current = null
-                setEscaneando(false)
-            }).catch(() => {
-                html5QrcodeRef.current = null
-                setEscaneando(false)
-            })
-        } else {
-            setEscaneando(false)
-        }
-    }, [])
+    useEffect(() => {
+        let scanner: Html5Qrcode | null = null;
 
-    const iniciarEscaner = async () => {
+        if (escaneando) {
+            const initScanner = async () => {
+                try {
+                    // Small delay to ensure DOM is ready
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    if (!document.getElementById(containerId)) {
+                        throw new Error("Contenedor 'reader-container' no encontrado");
+                    }
+
+                    scanner = new Html5Qrcode(containerId);
+                    html5QrcodeRef.current = scanner;
+
+                    await scanner.start(
+                        { facingMode: "environment" },
+                        {
+                            fps: 10,
+                            qrbox: { width: 280, height: 120 },
+                            aspectRatio: 1.0
+                        },
+                        (decodedText) => {
+                            console.log("Código detectado:", decodedText)
+                            if (scanner?.isScanning) {
+                                scanner.stop().then(() => {
+                                    html5QrcodeRef.current = null
+                                    setEscaneando(false)
+                                    onScan(decodedText)
+                                }).catch((err) => {
+                                    console.error("Error stopping scanner:", err)
+                                    setEscaneando(false)
+                                    onScan(decodedText)
+                                })
+                            }
+                        },
+                        () => { }
+                    )
+                } catch (err) {
+                    console.error("Error al iniciar escáner:", err)
+                    const mensaje = err instanceof Error ? err.message : 'Error al acceder a la cámara'
+                    setError(mensaje)
+                    // Do not close immediately so user sees error
+                }
+            };
+            
+            initScanner();
+        } else {
+            // Cleanup if stopped
+            if (html5QrcodeRef.current?.isScanning) {
+                html5QrcodeRef.current.stop().catch(console.error);
+                html5QrcodeRef.current = null;
+            }
+        }
+
+        return () => {
+            if (scanner?.isScanning) {
+                scanner.stop().catch(console.error);
+            }
+        };
+    }, [escaneando, onScan]);
+
+    const iniciarEscaner = () => {
         setEscaneando(true)
         setError(null)
+    }
 
-        await new Promise(resolve => setTimeout(resolve, 200))
-
-        try {
-            const html5Qrcode = new Html5Qrcode("reader-container")
-            html5QrcodeRef.current = html5Qrcode
-
-            await html5Qrcode.start(
-                { facingMode: "environment" },
-                {
-                    fps: 10,
-                    qrbox: { width: 280, height: 120 }
-                },
-                (decodedText: string) => {
-                    console.log("Código detectado:", decodedText)
-                    html5Qrcode.stop().then(() => {
-                        html5QrcodeRef.current = null
-                        setEscaneando(false)
-                        onScan(decodedText)
-                    }).catch(() => {
-                        setEscaneando(false)
-                        onScan(decodedText)
-                    })
-                },
-                () => { }
-            )
-        } catch (err) {
-            console.error("Error al iniciar escáner:", err)
-            const mensaje = err instanceof Error ? err.message : 'Error al acceder a la cámara'
-            setError(mensaje)
-            setEscaneando(false)
-        }
+    const detenerEscaner = () => {
+        setEscaneando(false)
     }
 
     return (
@@ -120,13 +143,16 @@ export default function LectorCodigoBarras({ onScan }: LectorCodigoBarrasProps) 
                     </div>
 
                     <div
-                        id="reader-container"
+                        id={containerId}
                         style={{
                             width: '100%',
                             maxWidth: '400px',
                             background: 'white',
                             borderRadius: '12px',
-                            overflow: 'hidden'
+                            overflow: 'hidden',
+                            // Ensure it has height for initialization if possible, 
+                            // though library usually handles it.
+                            minHeight: '300px' 
                         }}
                     />
 
@@ -155,7 +181,8 @@ export default function LectorCodigoBarras({ onScan }: LectorCodigoBarrasProps) 
                             borderRadius: '10px',
                             fontSize: '1.1rem',
                             cursor: 'pointer',
-                            fontWeight: 'bold'
+                            fontWeight: 'bold',
+                            zIndex: 3001 // Ensure it's clickable
                         }}
                     >
                         ✖ Cancelar
