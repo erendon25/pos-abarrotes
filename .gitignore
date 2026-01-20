@@ -36,3 +36,17 @@ build
 
 # Firebase credentials
 firebase-service-account.json
+
+# Build directories
+dist_electron
+dist_installer
+
+# Installers and packages
+*.exe
+*.dmg
+*.pkg
+*.deb
+*.rpm
+*.snap
+*.zip
+*.7z

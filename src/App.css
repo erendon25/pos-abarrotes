@@ -110,37 +110,90 @@
   padding: 1rem;
 }
 
-.layout-grid {
-  display: grid;
-  grid-template-columns: 1fr 550px;
-  /* Increased from what was likely smaller default */
-  gap: 1.5rem;
-  height: 100%;
-  max-height: calc(100vh - 2rem);
-}
-
-.panel-izquierdo {
-  overflow: hidden;
+/* Vertical Layout for Sales View */
+.venta-layout-vertical {
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
+  height: 100vh;
+  /* Use full height */
+  overflow: hidden;
+  /* Prevent body scroll */
 }
 
-.panel-derecho {
+/* 1. Search Section */
+.search-section-main {
+  flex-shrink: 0;
+  background: white;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.filtro-input-main {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1.1rem;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.filtro-input-main:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.btn-limpiar-filtro-main {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0 5px;
+}
+
+.btn-limpiar-filtro-main:hover {
+  color: #ef4444;
+}
+
+/* 2. Cart Section */
+.cart-section-main {
+  flex: 0 1 auto;
+  /* Can shrink/grow but preference to content */
+  max-height: 60vh;
+  /* Limit height so it doesn't take over */
+  overflow: hidden;
+  /* Internal scrolling handles overflow */
+}
+
+/* Override Cart styles to fit in section */
+.cart-section-main .carrito {
+  height: 100%;
+  max-height: 100%;
+  padding: 1rem;
+}
+
+.cart-section-main .carrito-items {
+  max-height: 500px;
+  /* Specific limit for items loop */
+}
+
+/* 3. Products Section */
+.products-section-main {
+  flex: 1;
+  /* Take remaining space */
+  overflow: hidden;
+  /* Scroll inside grid */
   background: white;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.main-container {
-  display: grid;
-  grid-template-columns: 1fr 550px;
-  gap: 1.5rem;
-  padding: 1.5rem;
-  height: 100%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
 }
 
 .productos-section h2 {
@@ -151,12 +204,9 @@
 }
 
 @media (max-width: 1024px) {
-  .main-container {
-    grid-template-columns: 1fr;
-  }
-
-  .carrito {
-    max-height: none;
+  .venta-layout-vertical {
+    height: auto;
+    overflow-y: auto;
   }
 }
 

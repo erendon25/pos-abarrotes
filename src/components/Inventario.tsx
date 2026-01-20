@@ -1,23 +1,26 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Producto } from '../types'
+import { Producto, MovimientoInventario } from '../types'
+import HistorialInventario from './HistorialInventario'
 import './Inventario.css'
 
 interface InventarioProps {
     productos: Producto[]
+    movimientos: MovimientoInventario[]
     onVolver: () => void
     onAjustarStock: (producto: Producto, nuevoStock: number, nuevoStockCaja: number | undefined, nuevoStockUnidad: number | undefined, motivo: string, cantidadDiferencia: number) => void
 }
 
-export default function Inventario({ productos, onVolver, onAjustarStock }: InventarioProps) {
+export default function Inventario({ productos, movimientos, onVolver, onAjustarStock }: InventarioProps) {
     const [busqueda, setBusqueda] = useState('')
     const [diaSeleccionado, setDiaSeleccionado] = useState<string>('')
+    const [mostrarHistorial, setMostrarHistorial] = useState(false)
 
 
     // Estado local para los conteos físicos { [productoId]: { cantidad, cajas, unidades } }
     const [conteos, setConteos] = useState<Record<string, { cantidad?: number, cajas?: number, unidades?: number }>>({})
     const [motivos, setMotivos] = useState<Record<string, string>>({})
 
-    // Configuración de Periodicidad
+    // Configuración de Periodicidad (Code omitted for brevity, same as before)
     const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
     const [configPeriodicidad, setConfigPeriodicidad] = useState<Record<string, string[]>>({})
 
@@ -33,7 +36,9 @@ export default function Inventario({ productos, onVolver, onAjustarStock }: Inve
         setDiaSeleccionado(mapDias[hoyIndex])
     }, [])
 
-    // Filtrar productos
+
+
+    // Filtrar productos (Code stays same)
     const productosFiltrados = useMemo(() => {
         let result = productos
 
@@ -60,13 +65,25 @@ export default function Inventario({ productos, onVolver, onAjustarStock }: Inve
     }, [productos, busqueda, diaSeleccionado, configPeriodicidad])
 
     const handleConteoChange = (id: string, field: 'cantidad' | 'cajas' | 'unidades', value: string) => {
-        const val = parseInt(value) || 0
-        setConteos(prev => ({
-            ...prev,
-            [id]: { ...prev[id], [field]: val }
-        }))
+        // Allow empty string to let user delete content
+        if (value === '') {
+            setConteos(prev => ({
+                ...prev,
+                [id]: { ...prev[id], [field]: undefined }
+            }))
+            return
+        }
+
+        const val = parseInt(value)
+        if (!isNaN(val)) {
+            setConteos(prev => ({
+                ...prev,
+                [id]: { ...prev[id], [field]: val }
+            }))
+        }
     }
 
+    // Rest of helper functions (handleMotivoChange, etc.) - keeping existing logic
     const handleMotivoChange = (id: string, motivo: string) => {
         setMotivos(prev => ({ ...prev, [id]: motivo }))
     }
@@ -132,8 +149,7 @@ export default function Inventario({ productos, onVolver, onAjustarStock }: Inve
         }
     }
 
-    // Resumen del día (Calculado sobre los productos filtrados)
-    // Monto de diferencias detectadas (solo de lo que se ha inputado)
+    // Resumen (same as before)
     const resumen = useMemo(() => {
         let totalHurto = 0
         let totalMerma = 0
@@ -159,10 +175,33 @@ export default function Inventario({ productos, onVolver, onAjustarStock }: Inve
         return { totalHurto, totalMerma, totalExcedente, totalValor }
     }, [conteos, productos, motivos])
 
+    // If showing history, return early with that component
+    if (mostrarHistorial) {
+        return <HistorialInventario movimientos={movimientos} onVolver={() => setMostrarHistorial(false)} />
+    }
+
     return (
         <div className="inventario-container">
             <div className="inventario-header">
-                <h1>Inventario</h1>
+                <div>
+                    <h1>Inventario</h1>
+                    <button
+                        className="btn-historial"
+                        onClick={() => setMostrarHistorial(true)}
+                        style={{
+                            marginTop: '0.5rem',
+                            padding: '0.5rem 1rem',
+                            fontSize: '0.9rem',
+                            background: '#e0e7ff',
+                            color: '#4338ca',
+                            border: '1px solid #c7d2fe',
+                            borderRadius: '6px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        📜 Ver Historial de Ajustes
+                    </button>
+                </div>
                 <button className="btn-volver" onClick={onVolver}>← Cerrar Panel</button>
             </div>
 

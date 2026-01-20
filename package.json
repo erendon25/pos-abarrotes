@@ -1,11 +1,39 @@
 {
   "name": "pos-abarrotes",
   "version": "1.0.0",
+  "author": "Jennifer",
   "description": "Punto de venta moderno para tienda de abarrotes",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "concurrently -k \"cross-env BROWSER=none npm run dev\" \"wait-on http://localhost:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
+    "electron:build": "cross-env ELECTRON_BUILDER_CACHE=./.cache CSC_IDENTITY_AUTO_DISCOVERY=false vite build && electron-builder"
+  },
+  "build": {
+    "appId": "com.posabarrotes.app",
+    "directories": {
+      "output": "dist_installer"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "POS Abarrotes"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.png",
+      "verifyUpdateCodeSignature": false,
+      "forceCodeSigning": false
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ]
   },
   "dependencies": {
     "firebase": "^12.7.0",
@@ -18,8 +46,13 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^40.0.0",
+    "electron-builder": "^26.4.0",
     "firebase-admin": "^13.6.0",
     "typescript": "^5.2.2",
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "wait-on": "^9.0.3"
   }
 }

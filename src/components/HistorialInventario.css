@@ -1,0 +1,123 @@
+.historial-inventario-container {
+    padding: 1rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: #f5f7eb;
+}
+
+.historial-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.historial-header h2 {
+    margin: 0;
+    color: #1a1a1a;
+}
+
+.filtros-historial {
+    display: flex;
+    gap: 1.5rem;
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.form-group-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-group-inline input {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.historial-resumen {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.card-resumen {
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.card-resumen span {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 0.25rem;
+}
+
+.card-resumen strong {
+    font-size: 1.5rem;
+    color: #333;
+}
+
+.tabla-historial-container {
+    flex: 1;
+    overflow: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.tabla-historial {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabla-historial th {
+    text-align: left;
+    padding: 1rem;
+    background-color: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    color: #64748b;
+    position: sticky;
+    top: 0;
+}
+
+.tabla-historial td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+}
+
+.badge-diff {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.badge-diff.neg {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+.badge-diff.pos {
+    background-color: #dcfce7;
+    color: #16a34a;
+}
+
+.badge-diff.neu {
+    color: #999;
+}
+
+.text-center {
+    text-align: center;
+}

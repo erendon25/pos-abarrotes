@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from 'react'
-import { Producto, ItemCarrito, Venta, Categoria, MetodoPago, Usuario, IngresoMercaderia } from './types'
+import { Producto, ItemCarrito, Venta, Categoria, MetodoPago, Usuario, IngresoMercaderia, MovimientoInventario } from './types'
 import ProductosGrid from './components/ProductosGrid'
 import Carrito from './components/Carrito'
 import Reportes from './components/Reportes'
@@ -18,6 +18,7 @@ import Inventario from './components/Inventario'
 import { obtenerSiguienteTicket, obtenerSiguienteBoleta } from './utils/numeracion'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from './firebase'
+import LectorCodigoBarras from './components/LectorCodigoBarras'
 import './App.css'
 
 
@@ -66,7 +67,9 @@ function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        if (parsed.length > 0) return parsed.map((p: any) => ({ ...p, fechaVencimiento: p.fechaVencimiento ? new Date(p.fechaVencimiento) : undefined }))
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((p: any) => ({ ...p, fechaVencimiento: p.fechaVencimiento ? new Date(p.fechaVencimiento) : undefined }))
+        }
       } catch (e) {
         console.error("Error parsing productos", e)
       }
@@ -79,7 +82,7 @@ function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        if (parsed.length > 0) return parsed
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
       } catch (e) { }
     }
     return categoriasIniciales
@@ -91,7 +94,10 @@ function App() {
     const saved = localStorage.getItem('pos_ventas')
     if (saved) {
       try {
-        return JSON.parse(saved).map((v: any) => ({ ...v, fecha: new Date(v.fecha) }))
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          return parsed.map((v: any) => ({ ...v, fecha: new Date(v.fecha) }))
+        }
       } catch (e) { }
     }
     return []
@@ -107,7 +113,10 @@ function App() {
     const saved = localStorage.getItem('pos_ingresos')
     if (saved) {
       try {
-        return JSON.parse(saved).map((i: any) => ({ ...i, fecha: new Date(i.fecha) }))
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          return parsed.map((i: any) => ({ ...i, fecha: new Date(i.fecha) }))
+        }
       } catch (e) { }
     }
     return []
@@ -118,11 +127,11 @@ function App() {
     try {
       const saved = localStorage.getItem('pos_usuarios')
       if (saved) {
-        const loadedUsers: Usuario[] = JSON.parse(saved)
-        if (loadedUsers.length > 0) {
-          // Filtrar duplicados por ID para evitar el error de React
+        const loadedUsers = JSON.parse(saved)
+        if (Array.isArray(loadedUsers) && loadedUsers.length > 0) {
+          // Filtrar duplicados por ID
           const map = new Map();
-          loadedUsers.forEach(u => {
+          loadedUsers.forEach((u: Usuario) => {
             if (!map.has(u.id)) map.set(u.id, u);
           });
           return Array.from(map.values());
@@ -477,8 +486,22 @@ function App() {
     )
   }
 
+  const [movimientos, setMovimientos] = useState<MovimientoInventario[]>(() => {
+    const saved = localStorage.getItem('pos_movimientos')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          return parsed.map((m: any) => ({ ...m, fecha: new Date(m.fecha) }))
+        }
+      } catch (e) { }
+    }
+    return []
+  })
+
   // Persist Data
   useEffect(() => { localStorage.setItem('pos_productos', JSON.stringify(productos)) }, [productos])
+  useEffect(() => { localStorage.setItem('pos_movimientos', JSON.stringify(movimientos)) }, [movimientos])
   useEffect(() => { localStorage.setItem('pos_categorias', JSON.stringify(categorias)) }, [categorias])
   useEffect(() => { localStorage.setItem('pos_usuarios', JSON.stringify(usuarios)) }, [usuarios])
   useEffect(() => { localStorage.setItem('pos_ventas', JSON.stringify(ventas)) }, [ventas])
@@ -486,8 +509,79 @@ function App() {
 
 
   // Views Rendering
+  // --- Inventory Logic ---
+  const ajustarStock = (
+    producto: Producto,
+    nuevoStock: number,
+    nuevoStockCaja: number | undefined,
+    nuevoStockUnidad: number | undefined,
+    motivo: string,
+    diff: number
+  ) => {
+    const fecha = new Date()
+
+    // 1. Update Product
+    const productoActualizado = {
+      ...producto,
+      stock: nuevoStock,
+      stockCaja: nuevoStockCaja,
+      stockUnidad: nuevoStockUnidad,
+      sincronizado: false
+    }
+    setProductos(prev => prev.map(p => p.id === producto.id ? productoActualizado : p))
+
+    // 2. Register Movement
+    const nuevoMovimiento: MovimientoInventario = {
+      id: Date.now().toString(),
+      fecha: fecha,
+      tipo: 'ajuste',
+      productoId: producto.id,
+      productoNombre: producto.nombre,
+      cantidad: diff, // Diferencia (+/-)
+      cantidadAnterior: producto.stock,
+      cantidadNueva: nuevoStock,
+      motivo: motivo,
+      usuario: currentUser || undefined,
+      cantidadCajas: nuevoStockCaja, // Snapshot of new state? Or diff? Definition says boxes count.
+      cantidadUnidades: nuevoStockUnidad
+    }
+
+    setMovimientos(prev => [...prev, nuevoMovimiento])
+
+    alert(`Stock ajustado correctamente. Diferencia: ${diff > 0 ? '+' : ''}${diff}. Motivo: ${motivo}`)
+  }
+
   if (!currentUser) {
     return <Login onLogin={handleLogin} usuarios={usuarios} />
+  }
+
+  // --- Scanner and Search Logic ---
+  const handleScan = (code: string) => {
+    // Buscar producto exacto y agregarlo al carrito
+    const codigoLimpio = code.trim().toUpperCase()
+    const productoEncontrado = productos.find(p =>
+      (p.codigoBarras && p.codigoBarras.toUpperCase() === codigoLimpio) ||
+      p.id.toUpperCase() === codigoLimpio
+    )
+
+    if (productoEncontrado) {
+      if (productoEncontrado.stock > 0) {
+        agregarAlCarrito(productoEncontrado)
+        setFiltro('') // Limpiar después de agregar
+      } else {
+        alert('Producto sin stock')
+        setFiltro(code)
+      }
+    } else {
+      setFiltro(code) // Dejar el código en el filtro para que el usuario vea que no se encontró
+    }
+  }
+
+  // Manejar tecla Enter en el input de búsqueda
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && filtro.trim()) {
+      handleScan(filtro.trim())
+    }
   }
 
   return (
@@ -498,31 +592,59 @@ function App() {
       cerrarSesion={handleLogout}
     >
       <div className="app-content-wrapper">
-        {vista === 'venta' && (
-          <div className="layout-grid">
-            <div className="panel-izquierdo">
-              <ProductosGrid
-                productos={productos}
-                categorias={categorias}
-                onAgregar={agregarAlCarrito}
-                filtro={filtro}
-                setFiltro={setFiltro}
-              />
-            </div>
-            <div className="panel-derecho">
-              <Carrito
-                items={carrito}
-                onEliminar={eliminarDelCarrito}
-                onProcesarVenta={procesarVenta}
-                onActualizarCantidad={actualizarCantidad}
-                categorias={categorias}
-                onCambiarSubcategoria={(() => { }) as any} // Simplification for now
-                total={calcularTotal()}
-                obtenerPrecio={obtenerPrecio}
-              />
+        <div className="venta-layout-vertical" style={{ display: vista === 'venta' ? 'flex' : 'none' }}>
+          {/* 1. Bar of Search */}
+          <div className="search-section-main">
+            <div className="filtro-container-main" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+              <div style={{ position: 'relative', width: '100%' }}>
+                <input
+                  type="text"
+                  className="filtro-input-main"
+                  placeholder="Buscar por nombre, código de barras..."
+                  value={filtro}
+                  onChange={(e) => setFiltro(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  autoFocus
+                />
+                {filtro && (
+                  <button
+                    className="btn-limpiar-filtro-main"
+                    onClick={() => setFiltro('')}
+                    title="Limpiar búsqueda"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+              <LectorCodigoBarras onScan={handleScan} />
             </div>
           </div>
-        )}
+
+          {/* 2. Cart */}
+          <div className="cart-section-main">
+            <Carrito
+              items={carrito}
+              onEliminar={eliminarDelCarrito}
+              onProcesarVenta={procesarVenta}
+              onActualizarCantidad={actualizarCantidad}
+              categorias={categorias}
+              onCambiarSubcategoria={(() => { }) as any}
+              total={calcularTotal()}
+              obtenerPrecio={obtenerPrecio}
+            />
+          </div>
+
+          {/* 3. Products Grid */}
+          <div className="products-section-main">
+            <ProductosGrid
+              productos={productos}
+              categorias={categorias}
+              onAgregar={agregarAlCarrito}
+              filtro={filtro}
+              setFiltro={setFiltro}
+            />
+          </div>
+        </div>
 
         {vista === 'reportes' && (
           <Reportes
@@ -577,12 +699,10 @@ function App() {
         {vista === 'inventario' && (
           <Inventario
             productos={productos}
+            movimientos={movimientos}
             onVolver={() => setVista('venta')}
-            onAjustarStock={(producto, nuevoStock, nuevoStockCaja, nuevoStockUnidad, motivo) => {
-              // Lógica de ajuste de stock
-              const productoActualizado = { ...producto, stock: nuevoStock, stockCaja: nuevoStockCaja, stockUnidad: nuevoStockUnidad, sincronizado: false }
-              setProductos(productos.map(p => p.id === producto.id ? productoActualizado : p))
-              alert(`Stock ajustado correctamente. Motivo: ${motivo}`)
+            onAjustarStock={(p, nuevoStock, nc, nu, motivo, diff) => {
+              ajustarStock(p, nuevoStock, nc, nu, motivo, diff)
             }}
           />
         )}

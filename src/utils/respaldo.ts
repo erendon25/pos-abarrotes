@@ -127,6 +127,7 @@ type MergeResult = {
     movimientos: number
   }
   stockActualizado: boolean
+  productosRestaurados: Producto[]
 }
 
 function aplicarIngresoAProducto(producto: Producto, itemIngreso: any): Producto {
@@ -195,7 +196,7 @@ function aplicarVentaAProducto(producto: Producto, itemVenta: any): Producto {
   return { ...producto, stock: Math.max(0, (producto.stock || 0) - cantidad) }
 }
 
-export function aplicarRespaldoMergeEnLocalStorage(respaldoRaw: any): MergeResult {
+export function aplicarRespaldoMergeEnLocalStorage(respaldoRaw: any, modo: 'merge' | 'sobrescribir' = 'merge'): MergeResult {
   // Validación mínima
   const respaldo: RespaldoPOSv1 = respaldoRaw
   if (!respaldo || respaldo.version !== 1 || respaldo.app !== 'pos-abarrotes') {
@@ -228,24 +229,51 @@ export function aplicarRespaldoMergeEnLocalStorage(respaldoRaw: any): MergeResul
   let nuevosIngresos = 0
   let nuevosMovimientos = 0
 
-  // 1) Asegurar productos (para que ventas/ingresos importados puedan ajustar stock)
+  // 1) Productos
   productosImp.forEach((p) => {
     if (!p?.id) return
-    if (!productosMap.has(p.id)) {
-      productosMap.set(p.id, p)
-      nuevosProductos++
+    if (modo === 'sobrescribir') {
+      // En modo sobrescribir, confiamos ciegamente en el respaldo
+      // Aseguramos fecha
+      const prod = { ...p, fechaVencimiento: p.fechaVencimiento ? new Date(p.fechaVencimiento) : undefined, sincronizado: false }
+      productosMap.set(p.id, prod)
+      nuevosProductos++ // Contamos como 'procesados'
+    } else {
+      // Modo Merge: Solo agregar si no existe
+      if (!productosMap.has(p.id)) {
+        productosMap.set(p.id, p)
+        nuevosProductos++
+      }
     }
   })
 
-  // 2) Categorías (solo agregar si no existen por nombre)
-  categoriasImp.forEach((c) => {
-    if (!c?.nombre) return
-    if (!categoriasSet.has(c.nombre)) {
-      categoriasExist.push(c)
-      categoriasSet.add(c.nombre)
-      nuevasCategorias++
-    }
-  })
+  // 2) Categorías
+  if (modo === 'sobrescribir') {
+    // Reemplazar categorías pero manteniendo estructura válida
+    // Podríamos limpiar categoriasExist primero, pero mejor solo agregar/actualizar
+    categoriasImp.forEach(c => {
+      if (!c?.nombre) return
+      if (!categoriasSet.has(c.nombre)) {
+        categoriasExist.push(c)
+        categoriasSet.add(c.nombre)
+        nuevasCategorias++
+      } else {
+        // Si ya existe y es sobrescribir, podríamos actualizar subcategorías
+        const idx = categoriasExist.findIndex(ci => ci.nombre === c.nombre)
+        if (idx >= 0) categoriasExist[idx] = c
+      }
+    })
+  } else {
+    // Modo Merge
+    categoriasImp.forEach((c) => {
+      if (!c?.nombre) return
+      if (!categoriasSet.has(c.nombre)) {
+        categoriasExist.push(c)
+        categoriasSet.add(c.nombre)
+        nuevasCategorias++
+      }
+    })
+  }
 
   // 3) Determinar nuevas ventas e ingresos (para ajustar stock sin duplicar)
   const ventasNuevas: any[] = []
@@ -277,58 +305,61 @@ export function aplicarRespaldoMergeEnLocalStorage(respaldoRaw: any): MergeResul
     }
   })
 
-  // 5) Ajustar stock SOLO con lo nuevo importado (ventas + ingresos + mermas/ajustes)
+  // 5) Ajustar stock
   let stockActualizado = false
   const productosArr = Array.from(productosMap.values())
   const productosById = new Map<string, Producto>(productosArr.map(p => [p.id, p]))
 
-  // Ingresos nuevos
-  ingresosNuevos.forEach((ing) => {
-    const items = asArray<any>(ing?.items)
-    items.forEach((it) => {
-      const pid = String(it?.productoId || '')
-      if (!pid) return
-      const prod = productosById.get(pid)
-      if (!prod) return
-      const actualizado = aplicarIngresoAProducto(prod, it)
-      productosById.set(pid, actualizado)
-      stockActualizado = true
-    })
-  })
-
-  // Ventas nuevas
-  ventasNuevas.forEach((venta) => {
-    const items = asArray<any>(venta?.items)
-    items.forEach((it) => {
-      const pid = String(it?.producto?.id || it?.productoId || '')
-      if (!pid) return
-      const prod = productosById.get(pid)
-      if (!prod) return
-      const actualizado = aplicarVentaAProducto(prod, it)
-      productosById.set(pid, actualizado)
-      stockActualizado = true
-    })
-  })
-
-  // Movimientos nuevos de merma/ajuste (por si se usan en el teléfono)
-  movimientosImp.forEach((mov) => {
-    if (!mov?.id) return
-    if (!movimientosExist.find(m => String(m.id) === String(mov.id))) return // solo los que son nuevos
-  })
+  // Movimientos nuevos (solo los que son realmente nuevos para no duplicar ajuste)
   const movimientosNuevosSolo: any[] = movimientosImp.filter(m => m?.id && !movimientosExist.some(e => String(e.id) === String(m.id)))
-  movimientosNuevosSolo.forEach((mov) => {
-    const tipo = String(mov?.tipo || '')
-    if (tipo !== 'merma' && tipo !== 'ajuste') return
-    const pid = String(mov?.productoId || '')
-    if (!pid) return
-    const prod = productosById.get(pid)
-    if (!prod) return
-    const delta = toNumber(mov?.cantidad, 0)
-    // Ajuste simple (en unidades)
-    const nuevoStock = Math.max(0, (prod.stock || 0) + delta)
-    productosById.set(pid, { ...prod, stock: nuevoStock })
+
+  if (modo === 'merge') {
+    // Ingresos nuevos
+    ingresosNuevos.forEach((ing) => {
+      const items = asArray<any>(ing?.items)
+      items.forEach((it) => {
+        const pid = String(it?.productoId || '')
+        if (!pid) return
+        const prod = productosById.get(pid)
+        if (!prod) return
+        const actualizado = aplicarIngresoAProducto(prod, it)
+        productosById.set(pid, actualizado)
+        stockActualizado = true
+      })
+    })
+
+    // Ventas nuevas
+    ventasNuevas.forEach((venta) => {
+      const items = asArray<any>(venta?.items)
+      items.forEach((it) => {
+        const pid = String(it?.producto?.id || it?.productoId || '')
+        if (!pid) return
+        const prod = productosById.get(pid)
+        if (!prod) return
+        const actualizado = aplicarVentaAProducto(prod, it)
+        productosById.set(pid, actualizado)
+        stockActualizado = true
+      })
+    })
+
+    // Movimientos
+    movimientosNuevosSolo.forEach((mov) => {
+      const tipo = String(mov?.tipo || '')
+      if (tipo !== 'merma' && tipo !== 'ajuste') return
+      const pid = String(mov?.productoId || '')
+      if (!pid) return
+      const prod = productosById.get(pid)
+      if (!prod) return
+      const delta = toNumber(mov?.cantidad, 0)
+      // Ajuste simple (en unidades)
+      const nuevoStock = Math.max(0, (prod.stock || 0) + delta)
+      productosById.set(pid, { ...prod, stock: nuevoStock })
+      stockActualizado = true
+    })
+  } else {
+    // Modo sobrescribir: El stock ya viene en el producto.
     stockActualizado = true
-  })
+  }
 
   // Guardar productos actualizados
   const productosFinal = Array.from(productosById.values())
@@ -406,6 +437,7 @@ export function aplicarRespaldoMergeEnLocalStorage(respaldoRaw: any): MergeResul
       movimientos: nuevosMovimientos,
     },
     stockActualizado,
+    productosRestaurados: productosFinal
   }
 }
 

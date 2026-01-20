@@ -287,90 +287,158 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
         <html>
         <head>
           <style>
+            @page { margin: 0; }
             body { 
               font-family: 'Courier New', Courier, monospace; 
               width: 80mm; 
               margin: 0; 
-              padding: 5px; 
-              font-size: 12px; 
+              padding: 5px 10px; 
+              font-size: 11px;
+              color: #000;
             }
             .center { text-align: center; }
             .bold { font-weight: bold; }
-            .table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            .table th { border-bottom: 1px dashed #000; text-align: left; font-size: 11px; }
-            .table td { font-size: 11px; padding: 2px 0; }
-            .text-right { text-align: right; }
-            .border-top { border-top: 1px dashed #000; margin-top: 5px; padding-top: 5px; }
-            .margin-y { margin: 10px 0; }
+            .uppercase { text-transform: uppercase; }
+            
+            /* Header */
+            .header-title { font-size: 14px; margin-bottom: 5px; }
+            .header-info { font-size: 10px; margin-bottom: 2px; }
+            
+            /* Separators */
+            .divider { border-top: 1px solid #ddd; margin: 8px 0; }
+            .divider-dashed { border-top: 1px dashed #000; margin: 8px 0; }
+            
+            /* Flex Rows for Info */
+            .row-flex { display: flex; justify-content: space-between; margin-bottom: 3px; }
+            
+            /* Table */
+            .table-container { margin-top: 10px; width: 100%; }
+            .table-header { 
+              background-color: #000080; /* Navy Blue */
+              color: white; 
+              font-weight: bold;
+              padding: 4px 2px;
+              display: flex;
+              font-size: 10px;
+            }
+            .col-prod { width: 45%; text-align: left; }
+            .col-cant { width: 15%; text-align: center; }
+            .col-precio { width: 20%; text-align: right; }
+            .col-total { width: 20%; text-align: right; }
+            
+            .table-row {
+              display: flex;
+              border-bottom: 1px solid #eee;
+              padding: 5px 0;
+              align-items: flex-start; /* Align top for multiline */
+            }
+            
+            .prod-name { font-size: 10px; }
+            
+            /* Totals */
+            .total-section { margin-top: 10px; }
+            .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; margin-bottom: 5px; }
+            .payment-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
+            
+            .footer { margin-top: 15px; font-size: 12px; }
           </style>
         </head>
         <body>
-          <div class="center bold" style="font-size: 14px;">${empresa.nombre}</div>
-          <div class="center">RUC: ${empresa.ruc}</div>
-          <div class="center">${empresa.direccion}</div>
-          <div class="center">${empresa.telefono}</div>
+          <!-- Header -->
+          <div class="center bold header-title uppercase">${empresa.nombre}</div>
+          <div class="center header-info">RUC: ${empresa.ruc}</div>
+          <div class="center header-info uppercase">${empresa.direccion}</div>
+          <div class="center header-info">${empresa.telefono}</div>
           
-          <div class="margin-y center bold">
-            ${esBoleta ? 'BOLETA' : 'TICKET'}: ${numeroComprobante}
+          <div class="divider"></div>
+          
+          <!-- Order Info -->
+          <div class="row-flex">
+            <span>${esBoleta ? 'BOLETA' : 'TICKET'}:</span>
+            <span>${numeroComprobante}</span>
+          </div>
+          <div class="row-flex">
+            <span>PAGO CON:</span>
+            <span>${obtenerMetodosPagoTexto()}</span>
+          </div>
+          <div class="row-flex">
+            <span>FECHA:</span>
+            <span>${formatearFecha(venta.fecha)}</span>
+          </div>
+          <div class="row-flex">
+            <span>FACTURADO POR:</span>
+            <span class="uppercase">${venta.usuario?.nombre || 'General'}</span>
           </div>
           
-          <div>FECHA: ${formatearFecha(venta.fecha)}</div>
-          <div>CAJERO: ${venta.usuario?.nombre || 'General'}</div>
-          <div>CLIENTE: ${venta.usuario?.nombre || 'Publico General'}</div>
-          
-          <table class="table">
-            <thead>
-              <tr>
-                <th style="width: 40%">DESCR</th>
-                <th style="width: 15%" class="center">CANT</th>
-                <th style="width: 20%" class="text-right">P.U.</th>
-                <th style="width: 25%" class="text-right">IMPORTE</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${venta.items.map(item => {
+          <!-- Table -->
+          <div class="table-container">
+            <div class="table-header uppercase">
+              <div class="col-prod">PRODUCTO</div>
+              <div class="col-cant">CANT</div>
+              <div class="col-precio">PRECIO</div>
+              <div class="col-total">TOTAL</div>
+            </div>
+            
+            ${venta.items.map(item => {
       const precio = obtenerPrecio(item);
       const total = precio * item.cantidad;
-      let nombre = item.producto.nombre + (item.subcategoriaSeleccionada ? ` (${item.subcategoriaSeleccionada})` : '');
+      let nombre = item.producto.nombre;
+      if (item.producto.marca) nombre += ` ${item.producto.marca}`;
+      if (item.subcategoriaSeleccionada) nombre += ` (${item.subcategoriaSeleccionada})`;
+
       return `
-                    <tr>
-                      <td>${nombre.substring(0, 20)}</td>
-                      <td class="center">${item.cantidad}</td>
-                      <td class="text-right">${precio.toFixed(2)}</td>
-                      <td class="text-right">${total.toFixed(2)}</td>
-                    </tr>
-                  `;
+                <div class="table-row">
+                  <div class="col-prod prod-name">${nombre}</div>
+                  <div class="col-cant">${item.cantidad}</div>
+                  <div class="col-precio">S/ ${precio.toFixed(2)}</div>
+                  <div class="col-total">S/ ${total.toFixed(2)}</div>
+                </div>
+                `;
     }).join('')}
-            </tbody>
-          </table>
-          
-          <div class="border-top margin-y">
-            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;">
-              <span>TOTAL:</span>
-              <span>S/ ${venta.total.toFixed(2)}</span>
-            </div>
           </div>
           
-          <div class="margin-y">
-            ${venta.metodosPago.map(m => `
-              <div style="display: flex; justify-content: space-between;">
-                <span>${m.tipo.toUpperCase()}:</span>
-                <span>S/ ${m.monto.toFixed(2)}</span>
-              </div>
-            `).join('')}
-             <div style="display: flex; justify-content: space-between;">
-                <span>VUELTO:</span>
-                <span>S/ ${(venta.vuelto || 0).toFixed(2)}</span>
-              </div>
+          <!-- Totals -->
+          <div class="total-section">
+             <div class="divider"></div>
+             
+             <div class="total-row">
+               <span>TOTAL:</span>
+               <span>S/ ${venta.total.toFixed(2)}</span>
+             </div>
+             
+             <div class="divider-dashed"></div>
+             
+             <div class="payment-row">
+               <span>PAGO:</span>
+               <span>S/ ${venta.metodosPago.reduce((acc, m) => acc + m.monto, 0).toFixed(2)}</span>
+             </div>
+             <div class="payment-row">
+               <span>VUELTO:</span>
+               <span>S/ ${(venta.vuelto || 0).toFixed(2)}</span>
+             </div>
           </div>
           
-          <div class="center margin-y">
+          <!-- Footer -->
+           <div class="divider"></div>
+          <div class="center bold footer uppercase">
             ¡ GRACIAS POR SU COMPRA !
           </div>
         </body>
         </html>
       `;
 
+    // Detectar Electron y usar impresión silenciosa si está disponible
+    if ((window as any).require) {
+      try {
+        const { ipcRenderer } = (window as any).require('electron');
+        ipcRenderer.send('print-silent', htmlContent);
+        return; // Salir de la función, ya lo manejó Electron
+      } catch (error) {
+        console.error("Error al intentar imprimir vía Electron:", error);
+      }
+    }
+
+    // Fallback para navegador web (muestra diálogo)
     const iframe = document.createElement('iframe');
     iframe.style.position = 'absolute';
     iframe.style.width = '0px';
@@ -416,11 +484,11 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
           <div className="comprobante-acciones">
             <button
               className={`btn-imprimir ${venta.anulada ? 'disabled' : ''}`}
-              onClick={handleImprimir}
+              onClick={imprimirTicketHTML}
               disabled={venta.anulada}
-              title={venta.anulada ? "No se puede imprimir una venta anulada" : "Imprimir PDF"}
+              title={venta.anulada ? "No se puede imprimir una venta anulada" : "Imprimir Ticket"}
             >
-              🖨️ Imprimir PDF
+              🖨️ Imprimir
             </button>
             <button className="btn-cerrar" onClick={onCerrar}>×</button>
           </div>

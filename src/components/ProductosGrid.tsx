@@ -1,6 +1,5 @@
 ﻿import { useState } from 'react'
 import { Producto, Categoria } from '../types'
-import LectorCodigoBarras from './LectorCodigoBarras'
 import './ProductosGrid.css'
 
 interface ProductosGridProps {
@@ -8,10 +7,10 @@ interface ProductosGridProps {
   categorias: Categoria[]
   onAgregar: (producto: Producto) => void
   filtro: string
-  setFiltro: (filtro: string) => void
+  setFiltro?: (filtro: string) => void // Opcional o removido si no se usa internamente
 }
 
-export default function ProductosGrid({ productos, onAgregar, filtro, setFiltro }: ProductosGridProps) {
+export default function ProductosGrid({ productos, onAgregar, filtro }: ProductosGridProps) {
   const [limiteVisible, setLimiteVisible] = useState(50)
 
   // Resetear límite cuando cambia el filtro
@@ -67,64 +66,11 @@ export default function ProductosGrid({ productos, onAgregar, filtro, setFiltro 
     }
   }
 
-  const handleScan = (code: string) => {
-    // Buscar producto exacto y agregarlo al carrito
-    const codigoLimpio = code.trim().toUpperCase()
-    const productoEncontrado = productos.find(p =>
-      (p.codigoBarras && p.codigoBarras.toUpperCase() === codigoLimpio) ||
-      p.id.toUpperCase() === codigoLimpio
-    )
-
-    if (productoEncontrado) {
-      if (productoEncontrado.stock > 0) {
-        onAgregar(productoEncontrado)
-        setFiltro('') // Limpiar después de agregar
-      } else {
-        alert('Producto sin stock')
-        setFiltro(code)
-      }
-    } else {
-      setFiltro(code) // Dejar el código en el filtro para que el usuario vea que no se encontró
-    }
-  }
-
-  // Manejar tecla Enter en el input de búsqueda
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && filtro.trim()) {
-      handleScan(filtro.trim())
-    }
-  }
-
   const productosVisibles = productosFiltrados.slice(0, limiteVisible)
 
   return (
     <div className="productos-container">
-      <div className="filtro-container" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <div style={{ position: 'relative', width: '100%' }}>
-          <input
-            type="text"
-            className="filtro-input"
-            placeholder="Buscar por nombre, código de barras..."
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value)}
-            onKeyDown={handleKeyDown}
-            style={{ width: '100%' }}
-          />
-          {filtro && (
-            <button
-              className="btn-limpiar-filtro"
-              onClick={() => setFiltro('')}
-              title="Limpiar búsqueda"
-              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)' }}
-            >
-              ×
-            </button>
-          )}
-        </div>
-        <LectorCodigoBarras onScan={handleScan} />
-
-
-      </div>
+      {/* Filtro removido - ahora manejado por App.tsx */}
 
       <div className="productos-lista" onScroll={handleScroll}>
         {productosVisibles.length === 0 ? (

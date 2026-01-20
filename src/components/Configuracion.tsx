@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
 import { ConfiguracionEmpresa, Categoria } from '../types'
+import { crearRespaldoDesdeLocalStorage, aplicarRespaldoMergeEnLocalStorage } from '../utils/respaldo'
+import { db } from '../firebase'
+import { writeBatch, doc } from 'firebase/firestore'
 import './Configuracion.css'
 
 interface ConfiguracionProps {
@@ -315,6 +318,117 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
                   Este porcentaje se aplicará automáticamente cuando se active el checkbox de tarjeta
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Copia de Seguridad */}
+        <div className="config-section">
+          <h2>Copia de Seguridad (Respaldo)</h2>
+          <div className="config-info" style={{ marginBottom: '15px' }}>
+            Guarda una copia de todos tus datos (Productos, Ventas, Inventario) en un archivo para protegerte ante fallos o formateo de PC.
+          </div>
+
+          <div className="backups-actions" style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+            <button
+              className="btn-guardar-config"
+              style={{ backgroundColor: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '8px' }}
+              onClick={() => {
+                try {
+                  const respaldo = crearRespaldoDesdeLocalStorage()
+                  const blob = new Blob([JSON.stringify(respaldo, null, 2)], { type: 'application/json' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `backup-pos-${new Date().toISOString().split('T')[0]}.json`
+                  document.body.appendChild(a)
+                  a.click()
+                  document.body.removeChild(a)
+                  URL.revokeObjectURL(url)
+                  alert('✅ Respaldo generado y descargado correctamente.')
+                } catch (error) {
+                  console.error(error)
+                  alert('❌ Error al generar respaldo.')
+                }
+              }}
+            >
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Descargar Respaldo
+            </button>
+
+            <div style={{ position: 'relative' }}>
+              <input
+                type="file"
+                accept=".json"
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+
+                  if (!confirm('⚠️ ATENCIÓN: Al restaurar, se SOBRESCRIBIRÁ la información actual con la del respaldo.\n\nEsto actualizará el stock y productos tanto en este equipo como en la nube.\n\n¿Estás seguro de continuar?')) {
+                    e.target.value = ''
+                    return
+                  }
+
+                  const reader = new FileReader()
+                  reader.onload = async (event) => {
+                    try {
+                      const json = JSON.parse(event.target?.result as string)
+
+                      // Usar modo 'sobrescribir' para garantizar que el backup mande
+                      const resultado = aplicarRespaldoMergeEnLocalStorage(json, 'sobrescribir')
+
+                      alert(`✅ Datos restaurados localmente.\nAhora se sincronizarán con la nube para evitar pérdidas...`)
+
+                      // Sincronizar con Firebase (Batch Update)
+                      try {
+                        const batchLimit = 400 // Firestore limit is 500
+                        const productos = resultado.productosRestaurados
+                        const total = productos.length
+                        let processed = 0
+
+                        while (processed < total) {
+                          const batch = writeBatch(db)
+                          const chunk = productos.slice(processed, processed + batchLimit)
+                          chunk.forEach((p) => {
+                            // Asegurar que no enviamos undefineds
+                            const data: any = { ...p }
+                            // Serializar fechas si es necesario o dejar que Firestore maneje Date
+                            // Firestore acepta Date objects.
+                            batch.set(doc(db, "productos", p.id), data)
+                          })
+                          await batch.commit()
+                          processed += chunk.length
+                        }
+                        console.log("Sincronización completa con Firebase")
+                      } catch (errSync) {
+                        console.error("Error al sincronizar con Firebase:", errSync)
+                        alert("⚠️ Advertencia: Los datos se restauraron localmente, pero hubo un error al sincronizar con la nube. Verifique su conexión.")
+                      }
+
+                      alert(`✅ Restauración y Sincronización completadas con éxito.\nEl sistema se reiniciará.`)
+                      window.location.reload()
+
+                    } catch (error) {
+                      console.error(error)
+                      alert('❌ Error al restaurar el archivo. Asegúrate de que sea un respaldo válido.')
+                    }
+                  }
+                  reader.readAsText(file)
+                  e.target.value = ''
+                }}
+              />
+              <button
+                className="btn-guardar-config"
+                style={{ backgroundColor: '#22c55e', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Restaurar Respaldo
+              </button>
             </div>
           </div>
         </div>

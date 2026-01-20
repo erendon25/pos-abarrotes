@@ -179,7 +179,6 @@ export default function CatalogoProductos({ productos, setProductos, categorias 
                             <th>Unidad</th>
                             <th>Costo</th>
                             <th>Precio</th>
-                            <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -195,16 +194,6 @@ export default function CatalogoProductos({ productos, setProductos, categorias 
                                 <td className="text-sm text-gray">{p.presentacion || 'und'}</td>
                                 <td>S/ {(p.costo || 0).toFixed(2)}</td>
                                 <td className="font-bold">S/ {p.precio.toFixed(2)}</td>
-                                <td>
-                                    <div className="switch-sm">
-                                        <input
-                                            type="checkbox"
-                                            checked={p.activo !== false}
-                                            onChange={() => toggleEstado(p.id, p.activo)}
-                                        />
-                                        <span className="slider-sm round"></span>
-                                    </div>
-                                </td>
                                 <td>
                                     <div className="acciones-row">
                                         <button className="btn-icon edit" title="Editar" onClick={() => abrirModal(p)}>✏️</button>
