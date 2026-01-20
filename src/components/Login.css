@@ -11,7 +11,7 @@
   background: white;
   padding: 3rem 2.5rem;
   border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
   width: 100%;
   max-width: 400px;
   text-align: center;
@@ -34,11 +34,20 @@
   height: 30px;
 }
 
-.login-card h2 {
-  font-size: 1.8rem;
+.login-store-name {
+  font-size: 1.2rem;
   color: #1e293b;
+  margin-bottom: 0.25rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.login-card h2 {
+  font-size: 1.5rem;
+  color: #64748b;
   margin-bottom: 0.5rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .login-subtitle {

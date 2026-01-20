@@ -25,7 +25,7 @@ export default function Sidebar({ vistaActual, cambiarVista, usuario, cerrarSesi
                         <line x1="12" y1="22.08" x2="12" y2="12"></line>
                     </svg>
                 </div>
-                <h1>Inventarios PRO</h1>
+                <h1>{localStorage.getItem('pos_empresa') ? JSON.parse(localStorage.getItem('pos_empresa')!).nombre : 'Sistema POS'}</h1>
             </div>
 
             <nav className="sidebar-nav">

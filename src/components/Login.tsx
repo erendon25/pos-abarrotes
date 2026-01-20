@@ -40,8 +40,9 @@ export default function Login({ onLogin, usuarios }: LoginProps) {
                     </svg>
                 </div>
 
+                <h1 className="login-store-name">{localStorage.getItem('pos_empresa') ? JSON.parse(localStorage.getItem('pos_empresa')!).nombre : 'SISTEMA POS'}</h1>
                 <h2>Iniciar Sesión</h2>
-                <p className="login-subtitle">Ingresa tus credenciales para acceder al Sistema .</p>
+                <p className="login-subtitle">Ingresa tus credenciales para acceder al sistema.</p>
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
