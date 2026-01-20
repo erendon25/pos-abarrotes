@@ -480,9 +480,13 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
                     </td>
                     <td>
                       <div className="acciones-row">
-                        <button className="btn-icon" title="Reimprimir" onClick={() => onReimprimirTicket(venta)}>🖨️</button>
-                        {!venta.anulada && (
-                          <button className="btn-icon delete" title="Anular Venta" onClick={() => onAnularVenta(venta.id)}>🚫</button>
+                        {!venta.anulada ? (
+                          <>
+                            <button className="btn-icon" title="Reimprimir" onClick={() => onReimprimirTicket(venta)}>🖨️</button>
+                            <button className="btn-icon delete" title="Anular Venta" onClick={() => onAnularVenta(venta.id)}>🚫</button>
+                          </>
+                        ) : (
+                          <span className="text-muted" style={{ fontSize: '0.8rem', color: '#94a3b8 italic' }}>Sin acciones</span>
                         )}
                       </div>
                     </td>

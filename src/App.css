@@ -105,15 +105,42 @@
   color: var(--text-secondary);
 }
 
+.app-content-wrapper {
+  height: 100%;
+  padding: 1rem;
+}
+
+.layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 550px;
+  /* Increased from what was likely smaller default */
+  gap: 1.5rem;
+  height: 100%;
+  max-height: calc(100vh - 2rem);
+}
+
+.panel-izquierdo {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-derecho {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .main-container {
   display: grid;
-  grid-template-columns: 1fr 500px;
-  /* Wider cart */
+  grid-template-columns: 1fr 550px;
   gap: 1.5rem;
   padding: 1.5rem;
   height: 100%;
-  /* Fill available height */
-  /* align-content: start; Ensure content starts at top */
 }
 
 .productos-section h2 {

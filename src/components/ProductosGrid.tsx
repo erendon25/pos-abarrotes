@@ -68,18 +68,30 @@ export default function ProductosGrid({ productos, onAgregar, filtro, setFiltro 
   }
 
   const handleScan = (code: string) => {
-    setFiltro(code)
-
     // Buscar producto exacto y agregarlo al carrito
     const codigoLimpio = code.trim().toUpperCase()
     const productoEncontrado = productos.find(p =>
-      p.codigoBarras === code ||
-      p.id === code ||
+      (p.codigoBarras && p.codigoBarras.toUpperCase() === codigoLimpio) ||
       p.id.toUpperCase() === codigoLimpio
     )
 
     if (productoEncontrado) {
-      onAgregar(productoEncontrado)
+      if (productoEncontrado.stock > 0) {
+        onAgregar(productoEncontrado)
+        setFiltro('') // Limpiar después de agregar
+      } else {
+        alert('Producto sin stock')
+        setFiltro(code)
+      }
+    } else {
+      setFiltro(code) // Dejar el código en el filtro para que el usuario vea que no se encontró
+    }
+  }
+
+  // Manejar tecla Enter en el input de búsqueda
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && filtro.trim()) {
+      handleScan(filtro.trim())
     }
   }
 
@@ -95,6 +107,7 @@ export default function ProductosGrid({ productos, onAgregar, filtro, setFiltro 
             placeholder="Buscar por nombre, código de barras..."
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
+            onKeyDown={handleKeyDown}
             style={{ width: '100%' }}
           />
           {filtro && (
@@ -109,6 +122,8 @@ export default function ProductosGrid({ productos, onAgregar, filtro, setFiltro 
           )}
         </div>
         <LectorCodigoBarras onScan={handleScan} />
+
+
       </div>
 
       <div className="productos-lista" onScroll={handleScroll}>

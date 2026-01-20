@@ -119,28 +119,21 @@ function App() {
       const saved = localStorage.getItem('pos_usuarios')
       if (saved) {
         const loadedUsers: Usuario[] = JSON.parse(saved)
-        // Ensure admin always exists in the loaded list
-        const adminExists = loadedUsers.some(u => u.usuario === 'admin')
-        if (!adminExists) {
-          return [
-            ...loadedUsers,
-            {
-              id: loadedUsers.some(u => u.id === '1') ? 'admin-restored' : '1',
-              nombre: 'Administrador Principal',
-              usuario: 'admin',
-              password: 'admin',
-              rol: 'admin',
-              permisos: { ventas: true, reportes: true, catalogo: true, categorias: true, ingresos: true, usuarios: true, configuracion: true }
-            }
-          ]
+        if (loadedUsers.length > 0) {
+          // Filtrar duplicados por ID para evitar el error de React
+          const map = new Map();
+          loadedUsers.forEach(u => {
+            if (!map.has(u.id)) map.set(u.id, u);
+          });
+          return Array.from(map.values());
         }
-        return loadedUsers
       }
     } catch (e) { }
-    // Usuario por defecto
+
+    // Usuario inicial solo si no hay nada guardado
     return [{
       id: '1',
-      nombre: 'Administrador',
+      nombre: 'Administrador Principal',
       usuario: 'admin',
       password: 'admin',
       rol: 'admin',

@@ -26,59 +26,66 @@ export default function LectorCodigoBarras({ onScan }: LectorCodigoBarrasProps) 
         if (escaneando) {
             const initScanner = async () => {
                 try {
-                    // Small delay to ensure DOM is ready
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    
+                    setError(null);
+                    await new Promise(resolve => setTimeout(resolve, 200));
+
                     if (!document.getElementById(containerId)) {
-                        throw new Error("Contenedor 'reader-container' no encontrado");
+                        throw new Error("Error técnico: Contenedor no encontrado");
                     }
 
                     scanner = new Html5Qrcode(containerId);
                     html5QrcodeRef.current = scanner;
 
-                    await scanner.start(
-                        { facingMode: "environment" },
-                        {
-                            fps: 10,
-                            qrbox: { width: 280, height: 120 },
-                            aspectRatio: 1.0
-                        },
-                        (decodedText) => {
-                            console.log("Código detectado:", decodedText)
-                            if (scanner?.isScanning) {
-                                scanner.stop().then(() => {
-                                    html5QrcodeRef.current = null
-                                    setEscaneando(false)
-                                    onScan(decodedText)
-                                }).catch((err) => {
-                                    console.error("Error stopping scanner:", err)
-                                    setEscaneando(false)
-                                    onScan(decodedText)
-                                })
-                            }
-                        },
-                        () => { }
-                    )
+                    const config = {
+                        fps: 10,
+                        qrbox: { width: 250, height: 150 },
+                        aspectRatio: 1.0
+                    };
+
+                    const onScanSuccess = (decodedText: string) => {
+                        console.log("Scan Success:", decodedText);
+                        // Vibrate if available
+                        if (window.navigator.vibrate) window.navigator.vibrate(100);
+
+                        if (scanner?.isScanning) {
+                            scanner.stop().then(() => {
+                                html5QrcodeRef.current = null;
+                                setEscaneando(false);
+                                onScan(decodedText);
+                            }).catch(() => {
+                                setEscaneando(false);
+                                onScan(decodedText);
+                            });
+                        }
+                    };
+
+                    // Try facingMode first
+                    try {
+                        await scanner.start({ facingMode: "environment" }, config, onScanSuccess, () => { });
+                    } catch (e) {
+                        console.warn("Facing mode 'environment' failed, listing cameras...", e);
+                        // Fallback: Get all cameras and pick back one
+                        const devices = await Html5Qrcode.getCameras();
+                        if (devices && devices.length > 0) {
+                            // Pick last camera (usually the back one on many phones)
+                            const cameraId = devices[devices.length - 1].id;
+                            await scanner.start(cameraId, config, onScanSuccess, () => { });
+                        } else {
+                            throw new Error("No se detectaron cámaras en este dispositivo.");
+                        }
+                    }
                 } catch (err) {
-                    console.error("Error al iniciar escáner:", err)
-                    const mensaje = err instanceof Error ? err.message : 'Error al acceder a la cámara'
-                    setError(mensaje)
-                    // Do not close immediately so user sees error
+                    console.error("Scanner Error:", err);
+                    setError(err instanceof Error ? err.message : "No se pudo iniciar la cámara. Verifica los permisos.");
                 }
             };
-            
+
             initScanner();
-        } else {
-            // Cleanup if stopped
-            if (html5QrcodeRef.current?.isScanning) {
-                html5QrcodeRef.current.stop().catch(console.error);
-                html5QrcodeRef.current = null;
-            }
         }
 
         return () => {
             if (scanner?.isScanning) {
-                scanner.stop().catch(console.error);
+                scanner.stop().catch(() => { });
             }
         };
     }, [escaneando, onScan]);
@@ -152,7 +159,7 @@ export default function LectorCodigoBarras({ onScan }: LectorCodigoBarrasProps) 
                             overflow: 'hidden',
                             // Ensure it has height for initialization if possible, 
                             // though library usually handles it.
-                            minHeight: '300px' 
+                            minHeight: '300px'
                         }}
                     />
 
