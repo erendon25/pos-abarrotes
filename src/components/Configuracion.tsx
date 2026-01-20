@@ -1,21 +1,18 @@
 import { useState, useEffect } from 'react'
-import { Usuario, ConfiguracionEmpresa, Categoria } from '../types'
+import { ConfiguracionEmpresa, Categoria } from '../types'
 import './Configuracion.css'
 
 interface ConfiguracionProps {
-  onVolver: () => void
   categorias: Categoria[] // Necesitamos las categorías para la periodicidad
   onConfigSaved?: () => void
 }
 
-export default function Configuracion({ onVolver, categorias, onConfigSaved }: ConfiguracionProps) {
+export default function Configuracion({ categorias, onConfigSaved }: ConfiguracionProps) {
   const [prefijoTicket, setPrefijoTicket] = useState('BOL')
   const [numeroTicket, setNumeroTicket] = useState('1')
   const [prefijoBoleta, setPrefijoBoleta] = useState('BOL')
   const [numeroBoleta, setNumeroBoleta] = useState('1')
   const [porcentajeTarjeta, setPorcentajeTarjeta] = useState('3')
-  const [usuarios, setUsuarios] = useState<Usuario[]>([])
-  const [nuevoUsuario, setNuevoUsuario] = useState('')
   const [empresa, setEmpresa] = useState<ConfiguracionEmpresa>({
     nombre: 'MINIMARKET COOL MARKET',
     ruc: '10444309852',
@@ -35,17 +32,6 @@ export default function Configuracion({ onVolver, categorias, onConfigSaved }: C
     const prefijoB = localStorage.getItem('pos_boleta_prefijo') || 'BOL'
     const numB = localStorage.getItem('pos_boleta_numero') || '1'
     const porcTarj = localStorage.getItem('pos_porcentaje_tarjeta') || '3'
-
-    // Cargar usuarios
-    const usuariosGuardados = localStorage.getItem('pos_usuarios')
-    if (usuariosGuardados) {
-      setUsuarios(JSON.parse(usuariosGuardados))
-    } else {
-      // Usuario por defecto
-      const usuarioDefault: Usuario = { id: '1', nombre: 'LUIS' }
-      setUsuarios([usuarioDefault])
-      localStorage.setItem('pos_usuarios', JSON.stringify([usuarioDefault]))
-    }
 
     // Cargar datos de empresa
     const empresaGuardada = localStorage.getItem('pos_empresa')
@@ -73,12 +59,6 @@ export default function Configuracion({ onVolver, categorias, onConfigSaved }: C
     if (!inicializado) return
     localStorage.setItem('pos_empresa', JSON.stringify(empresa))
   }, [empresa, inicializado])
-
-  // Auto-guardado de Usuarios
-  useEffect(() => {
-    if (!inicializado) return
-    localStorage.setItem('pos_usuarios', JSON.stringify(usuarios))
-  }, [usuarios, inicializado])
 
   // Auto-guardado de Inventario
   useEffect(() => {
@@ -118,9 +98,6 @@ export default function Configuracion({ onVolver, categorias, onConfigSaved }: C
     // Guardar porcentajes
     localStorage.setItem('pos_porcentaje_tarjeta', porcentajeTarjeta)
 
-    // Guardar usuarios
-    localStorage.setItem('pos_usuarios', JSON.stringify(usuarios))
-
     // Guardar empresa
     localStorage.setItem('pos_empresa', JSON.stringify(empresa))
 
@@ -131,30 +108,6 @@ export default function Configuracion({ onVolver, categorias, onConfigSaved }: C
 
     if (onConfigSaved) {
       onConfigSaved()
-    }
-  }
-
-  const agregarUsuario = () => {
-    if (!nuevoUsuario.trim()) {
-      alert('Ingrese un nombre de usuario')
-      return
-    }
-    const nuevo: Usuario = {
-      id: Date.now().toString(),
-      nombre: nuevoUsuario.trim().toUpperCase()
-    }
-    const usuariosActualizados = [...usuarios, nuevo]
-    setUsuarios(usuariosActualizados)
-    setNuevoUsuario('')
-  }
-
-  const eliminarUsuario = (id: string) => {
-    if (usuarios.length === 1) {
-      alert('Debe haber al menos un usuario')
-      return
-    }
-    if (confirm('¿Está seguro de eliminar este usuario?')) {
-      setUsuarios(usuarios.filter(u => u.id !== id))
     }
   }
 
@@ -173,9 +126,7 @@ export default function Configuracion({ onVolver, categorias, onConfigSaved }: C
     <div className="configuracion">
       <div className="configuracion-header">
         <h1>Configuración</h1>
-        <button className="btn-volver" onClick={onVolver}>
-          ← Volver
-        </button>
+        {/* Removed Volver button as it might be redundant if used in sidebar layout, but keeping it optional just in case logic needs it, though requested removal of users implies layout change */}
       </div>
 
       <div className="configuracion-content">
@@ -250,45 +201,6 @@ export default function Configuracion({ onVolver, categorias, onConfigSaved }: C
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Usuarios */}
-        <div className="config-section">
-          <h2>Usuarios</h2>
-          <div className="config-campos">
-            <div className="usuarios-list">
-              {usuarios.map(usuario => (
-                <div key={usuario.id} className="usuario-item">
-                  <span>{usuario.nombre}</span>
-                  {usuarios.length > 1 && (
-                    <button
-                      className="btn-eliminar-usuario"
-                      onClick={() => eliminarUsuario(usuario.id)}
-                      title="Eliminar usuario"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="form-group-config">
-              <label>Agregar Usuario</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input
-                  type="text"
-                  value={nuevoUsuario}
-                  onChange={(e) => setNuevoUsuario(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && agregarUsuario()}
-                  placeholder="Nombre del usuario"
-                  className="input-config"
-                />
-                <button className="btn-agregar-usuario" onClick={agregarUsuario}>
-                  Agregar
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 

@@ -2,33 +2,39 @@ import { useState } from 'react'
 import { Categoria } from '../types'
 import './GestionCategorias.css'
 
+
 interface GestionCategoriasProps {
   categorias: Categoria[]
-  onGuardar: (categorias: Categoria[]) => void
-  onCerrar: () => void
+  setCategorias: (categorias: Categoria[]) => void
 }
 
-export default function GestionCategorias({ categorias, onGuardar, onCerrar }: GestionCategoriasProps) {
-  const [categoriasEdit, setCategoriasEdit] = useState<Categoria[]>(categorias)
+export default function GestionCategorias({ categorias, setCategorias }: GestionCategoriasProps) {
   const [nuevaCategoria, setNuevaCategoria] = useState('')
   const [nuevaSubcategoria, setNuevaSubcategoria] = useState<{ categoria: string, subcategoria: string } | null>(null)
 
+  const actualizarCategorias = (nuevas: Categoria[]) => {
+    setCategorias(nuevas)
+    // Persistencia handled by parent or useEffect in App
+    localStorage.setItem('pos_categorias', JSON.stringify(nuevas))
+  }
+
+
   const agregarCategoria = () => {
     if (!nuevaCategoria.trim()) return
-    
-    const existe = categoriasEdit.find(c => c.nombre.toLowerCase() === nuevaCategoria.trim().toLowerCase())
+
+    const existe = categorias.find(c => c.nombre.toLowerCase() === nuevaCategoria.trim().toLowerCase())
     if (existe) {
       alert('Esta categoría ya existe')
       return
     }
-    
-    setCategoriasEdit([...categoriasEdit, { nombre: nuevaCategoria.trim(), subcategorias: [] }])
+
+    actualizarCategorias([...categorias, { nombre: nuevaCategoria.trim(), subcategorias: [] }])
     setNuevaCategoria('')
   }
 
   const eliminarCategoria = (nombre: string) => {
     if (confirm(`¿Estás seguro de eliminar la categoría "${nombre}"?`)) {
-      setCategoriasEdit(categoriasEdit.filter(c => c.nombre !== nombre))
+      actualizarCategorias(categorias.filter(c => c.nombre !== nombre))
     }
   }
 
@@ -42,8 +48,8 @@ export default function GestionCategorias({ categorias, onGuardar, onCerrar }: G
 
   const guardarSubcategoria = () => {
     if (!nuevaSubcategoria || !nuevaSubcategoria.subcategoria.trim()) return
-    
-    setCategoriasEdit(categoriasEdit.map(c => {
+
+    const nuevas = categorias.map(c => {
       if (c.nombre === nuevaSubcategoria.categoria) {
         const existe = c.subcategorias.find(s => s.toLowerCase() === nuevaSubcategoria.subcategoria.trim().toLowerCase())
         if (existe) {
@@ -53,101 +59,72 @@ export default function GestionCategorias({ categorias, onGuardar, onCerrar }: G
         return { ...c, subcategorias: [...c.subcategorias, nuevaSubcategoria.subcategoria.trim()] }
       }
       return c
-    }))
+    })
+    actualizarCategorias(nuevas)
     setNuevaSubcategoria(null)
   }
 
   const eliminarSubcategoria = (categoriaNombre: string, subcategoria: string) => {
-    setCategoriasEdit(categoriasEdit.map(c => {
+    const nuevas = categorias.map(c => {
       if (c.nombre === categoriaNombre) {
         return { ...c, subcategorias: c.subcategorias.filter(s => s !== subcategoria) }
       }
       return c
-    }))
-  }
-
-  const guardar = () => {
-    onGuardar(categoriasEdit)
-    onCerrar()
+    })
+    actualizarCategorias(nuevas)
   }
 
   return (
-    <div className="modal-overlay" onClick={onCerrar}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Gestión de Categorías y Subcategorías</h2>
-          <button className="btn-cerrar" onClick={onCerrar}>×</button>
-        </div>
-        
-        <div className="modal-body">
-          {/* Agregar nueva categoría */}
-          <div className="agregar-categoria">
-            <h3>Agregar Categoría</h3>
-            <div className="input-group">
-              <input
-                type="text"
-                value={nuevaCategoria}
-                onChange={(e) => setNuevaCategoria(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && agregarCategoria()}
-                placeholder="Nombre de la categoría"
-              />
-              <button className="btn-agregar" onClick={agregarCategoria}>
-                + Agregar
-              </button>
-            </div>
-          </div>
+    <div className="categorias-page">
+      <div className="categorias-header-page">
+        <h2>Gestión de Categorías y Subcategorías</h2>
+        <p>Organiza tus productos para un mejor control de inventario.</p>
+      </div>
 
-          {/* Lista de categorías */}
-          <div className="categorias-lista">
-            <h3>Categorías Existentes</h3>
-            {categoriasEdit.map(categoria => (
-              <div key={categoria.nombre} className="categoria-item-gestion">
-                <div className="categoria-header-gestion">
-                  <span className="categoria-nombre-gestion">{categoria.nombre}</span>
-                  <div className="categoria-acciones">
-                    {nuevaSubcategoria?.categoria === categoria.nombre ? (
-                      <div className="subcategoria-form">
-                        <input
-                          type="text"
-                          value={nuevaSubcategoria.subcategoria}
-                          onChange={(e) => setNuevaSubcategoria({ ...nuevaSubcategoria, subcategoria: e.target.value })}
-                          onKeyPress={(e) => e.key === 'Enter' && guardarSubcategoria()}
-                          placeholder="Nombre de la subcategoría"
-                          autoFocus
-                        />
-                        <button className="btn-guardar-sub" onClick={guardarSubcategoria}>
-                          ✓
-                        </button>
-                        <button className="btn-cancelar-sub" onClick={cancelarSubcategoria}>
-                          ×
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <button 
-                          className="btn-subcategoria"
-                          onClick={() => iniciarAgregarSubcategoria(categoria.nombre)}
-                        >
-                          + Subcategoría
-                        </button>
-                        <button 
-                          className="btn-eliminar-cat"
-                          onClick={() => eliminarCategoria(categoria.nombre)}
-                        >
-                          Eliminar
-                        </button>
-                      </>
-                    )}
-                  </div>
+      <div className="detalle-categorias-card">
+        {/* Agregar nueva categoría */}
+        <div className="agregar-categoria-section">
+          <h3>Agregar Nueva Categoría</h3>
+          <div className="input-group-page">
+            <input
+              type="text"
+              value={nuevaCategoria}
+              onChange={(e) => setNuevaCategoria(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && agregarCategoria()}
+              placeholder="Nombre de la categoría..."
+            />
+            <button className="btn-agregar-page" onClick={agregarCategoria}>
+              + Agregar Categoría
+            </button>
+          </div>
+        </div>
+
+        <div className="separator"></div>
+
+        {/* Lista de categorías */}
+        <div className="categorias-lista-page">
+          <h3>Categorías Existentes ({categorias.length})</h3>
+          <div className="grid-categorias">
+            {categorias.map(categoria => (
+              <div key={categoria.nombre} className="categoria-card">
+                <div className="categoria-card-header">
+                  <span className="categoria-nombre-title">{categoria.nombre}</span>
+                  <button
+                    className="btn-icon delete"
+                    onClick={() => eliminarCategoria(categoria.nombre)}
+                    title="Eliminar Categoría"
+                  >
+                    🗑️
+                  </button>
                 </div>
-                
-                {categoria.subcategorias.length > 0 && (
-                  <div className="subcategorias-lista">
+
+                <div className="subcategorias-container">
+                  <div className="subcategories-list">
                     {categoria.subcategorias.map(subcategoria => (
-                      <div key={subcategoria} className="subcategoria-item">
+                      <div key={subcategoria} className="chip-subcategoria">
                         <span>{subcategoria}</span>
-                        <button 
-                          className="btn-eliminar-sub"
+                        <button
+                          className="btn-x-sub"
                           onClick={() => eliminarSubcategoria(categoria.nombre, subcategoria)}
                         >
                           ×
@@ -155,19 +132,33 @@ export default function GestionCategorias({ categorias, onGuardar, onCerrar }: G
                       </div>
                     ))}
                   </div>
-                )}
+
+                  {nuevaSubcategoria?.categoria === categoria.nombre ? (
+                    <div className="subcategoria-input-inline">
+                      <input
+                        type="text"
+                        value={nuevaSubcategoria.subcategoria}
+                        onChange={(e) => setNuevaSubcategoria({ ...nuevaSubcategoria, subcategoria: e.target.value })}
+                        onKeyPress={(e) => e.key === 'Enter' && guardarSubcategoria()}
+                        placeholder="Nueva subcategoría"
+                        autoFocus
+                        className="input-sub-sm"
+                      />
+                      <button className="btn-check-sub" onClick={guardarSubcategoria}>✓</button>
+                      <button className="btn-cancel-sub" onClick={cancelarSubcategoria}>×</button>
+                    </div>
+                  ) : (
+                    <button
+                      className="btn-add-sub-text"
+                      onClick={() => iniciarAgregarSubcategoria(categoria.nombre)}
+                    >
+                      + Agregar Subcategoría
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="modal-footer">
-          <button className="btn-cancelar" onClick={onCerrar}>
-            Cancelar
-          </button>
-          <button className="btn-guardar" onClick={guardar}>
-            Guardar Cambios
-          </button>
         </div>
       </div>
     </div>

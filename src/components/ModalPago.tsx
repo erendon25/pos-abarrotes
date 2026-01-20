@@ -1,20 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { MetodoPago, Usuario } from '../types'
 import './ModalPago.css'
 
 interface ModalPagoProps {
   total: number
   onConfirmar: (
-    metodosPago: MetodoPago[], 
-    vuelto: number, 
+    metodosPago: MetodoPago[],
+    vuelto: number,
     requiereBoleta: boolean,
     usuario?: Usuario,
     porcentajeTarjeta?: number
   ) => void
   onCancelar: () => void
+  usuario?: Usuario | null
 }
 
-export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoProps) {
+export default function ModalPago({ total, onConfirmar, onCancelar, usuario }: ModalPagoProps) {
   const [metodosPago, setMetodosPago] = useState<MetodoPago[]>([])
   const [montoEfectivo, setMontoEfectivo] = useState('')
   const [montoYape, setMontoYape] = useState('')
@@ -24,26 +25,8 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
   const [porcentajeTarjeta, setPorcentajeTarjeta] = useState(() => {
     return localStorage.getItem('pos_porcentaje_tarjeta') || '3'
   })
-  const [usuarios, setUsuarios] = useState<Usuario[]>([])
-  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<string>('')
 
-  useEffect(() => {
-    // Cargar usuarios
-    const usuariosGuardados = localStorage.getItem('pos_usuarios')
-    if (usuariosGuardados) {
-      const usuariosList = JSON.parse(usuariosGuardados)
-      setUsuarios(usuariosList)
-      // Seleccionar el primer usuario por defecto
-      if (usuariosList.length > 0) {
-        setUsuarioSeleccionado(usuariosList[0].id)
-      }
-    } else {
-      // Usuario por defecto si no hay usuarios configurados
-      const usuarioDefault: Usuario = { id: '1', nombre: 'LUIS' }
-      setUsuarios([usuarioDefault])
-      setUsuarioSeleccionado('1')
-    }
-  }, [])
+  // Removed internal user state
 
   const calcularTotalPagado = () => {
     return metodosPago.reduce((sum, metodo) => sum + metodo.monto, 0)
@@ -55,7 +38,7 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
 
   const calcularPorcentajeTarjetaAdicional = () => {
     if (!aplicarPorcentajeTarjeta || !porcentajeTarjeta) return 0
-    
+
     const porcentaje = parseFloat(porcentajeTarjeta) || 0
     const totalConBoleta = calcularTotalConBoleta()
     return totalConBoleta * (porcentaje / 100)
@@ -112,26 +95,25 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
 
   const handleConfirmar = () => {
     const porcentajeTarjetaNum = aplicarPorcentajeTarjeta ? (parseFloat(porcentajeTarjeta) || 0) : undefined
-    const usuario = usuarios.find(u => u.id === usuarioSeleccionado)
-    
+
     // Si no hay ningún monto ingresado, usar efectivo por defecto con el total a pagar
     let metodosPagoFinal = metodosPago
     let vueltoFinal = vuelto
-    
+
     if (metodosPago.length === 0 || totalPagado === 0) {
       // Agregar efectivo por defecto con el monto del total
       metodosPagoFinal = [{ tipo: 'efectivo' as const, monto: totalConAdicionales }]
       vueltoFinal = 0
     }
-    
+
     const puedeConfirmarFinal = metodosPagoFinal.reduce((sum, metodo) => sum + metodo.monto, 0) >= totalConAdicionales
-    
+
     if (puedeConfirmarFinal) {
       onConfirmar(
-        metodosPagoFinal, 
-        vueltoFinal, 
+        metodosPagoFinal,
+        vueltoFinal,
         requiereBoleta,
-        usuario,
+        usuario || undefined,
         porcentajeTarjetaNum
       )
     }
@@ -144,25 +126,14 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
           <h2>Procesar Pago</h2>
           <button className="btn-cerrar" onClick={onCancelar}>×</button>
         </div>
-        
+
         <div className="modal-body-pago">
-          {/* Selector de Usuario */}
-          <div className="usuario-section">
-            <label className="usuario-label">
-              Usuario:
-            </label>
-            <select
-              value={usuarioSeleccionado}
-              onChange={(e) => setUsuarioSeleccionado(e.target.value)}
-              className="usuario-select"
-            >
-              {usuarios.map(usuario => (
-                <option key={usuario.id} value={usuario.id}>
-                  {usuario.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Usuario Display */}
+          {usuario && (
+            <div className="usuario-section" style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
+              Vendedor: <strong>{usuario.nombre}</strong>
+            </div>
+          )}
 
           <div className="total-pago">
             <div className="total-info">
@@ -194,7 +165,7 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
                 />
                 <span>Requiere Boleta</span>
               </label>
-              
+
             </div>
 
             {/* Checkbox de porcentaje por tarjeta */}
@@ -208,7 +179,7 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
                 />
                 <span>% Adicional por Tarjeta</span>
               </label>
-              
+
               {aplicarPorcentajeTarjeta && (
                 <div className="tarjeta-porcentaje-campos">
                   <div className="form-group-factura" style={{ gridColumn: '1 / -1' }}>
@@ -327,7 +298,7 @@ export default function ModalPago({ total, onConfirmar, onCancelar }: ModalPagoP
           <button className="btn-cancelar-pago" onClick={onCancelar}>
             Cancelar
           </button>
-          <button 
+          <button
             className={`btn-confirmar-pago ${(puedeConfirmar || metodosPago.length === 0 || totalPagado === 0) ? '' : 'disabled'}`}
             onClick={handleConfirmar}
             disabled={!(puedeConfirmar || metodosPago.length === 0 || totalPagado === 0)}

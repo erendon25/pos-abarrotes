@@ -5,6 +5,8 @@ import './Reportes.css'
 interface ReportesProps {
   ventas: Venta[]
   onVolver: () => void
+  onAnularVenta: (id: string) => void
+  onReimprimirTicket: (venta: Venta) => void
 }
 
 interface ProductoVendido {
@@ -15,7 +17,8 @@ interface ProductoVendido {
   subcategoria?: string
 }
 
-export default function Reportes({ ventas, onVolver }: ReportesProps) {
+export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimirTicket }: ReportesProps) {
+  // ... (existing state)
   const [categoriaExpandida, setCategoriaExpandida] = useState<string | null>(null)
   const [subcategoriaExpandida, setSubcategoriaExpandida] = useState<string | null>(null)
   const [filtroFechaDesde, setFiltroFechaDesde] = useState('')
@@ -31,7 +34,6 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
     if (filtroFechaDesde) {
       const [year, month, day] = filtroFechaDesde.split('-').map(Number)
       const fechaDesde = new Date(year, month - 1, day)
-      // fechaDesde ya es 00:00:00 local al crearse así
       if (fechaVenta < fechaDesde) return false
     }
 
@@ -45,8 +47,9 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
     return true
   })
 
+  // ... (existing calculations logic - no changes needed there)
   // Calcular venta total
-  const ventaTotal = ventasFiltradas.reduce((sum, venta) => sum + venta.total, 0)
+  const ventaTotal = ventasFiltradas.reduce((sum, venta) => sum + (venta.anulada ? 0 : venta.total), 0)
 
   // Calcular ventas por categoría
   const ventasPorCategoria: Record<string, number> = {}
@@ -64,6 +67,8 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
   }
 
   ventasFiltradas.forEach(venta => {
+    if (venta.anulada) return // Skip anuladas for stats
+
     venta.items.forEach(item => {
       const categoria = item.producto.categoria
       const precio = obtenerPrecioItem(item)
@@ -130,12 +135,14 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
   // Calcular productos más y menos vendidos
   const productosVendidos: Record<string, number> = {}
   ventasFiltradas.forEach(venta => {
+    if (venta.anulada) return
     venta.items.forEach(item => {
       const nombre = item.producto.nombre
       productosVendidos[nombre] = (productosVendidos[nombre] || 0) + item.cantidad
     })
   })
 
+  // ... (rest of stats logic)
   const productosArray = Object.entries(productosVendidos).map(([nombre, cantidad]) => ({
     nombre,
     cantidad
@@ -157,11 +164,13 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
   }
 
   ventasFiltradas.forEach(venta => {
+    if (venta.anulada) return
     venta.metodosPago.forEach(metodo => {
       ventasPorMetodo[metodo.tipo] = (ventasPorMetodo[metodo.tipo] || 0) + metodo.monto
     })
   })
 
+  // ... (existing helper functions)
   const toggleCategoria = (categoria: string) => {
     setCategoriaExpandida(categoriaExpandida === categoria ? null : categoria)
   }
@@ -249,16 +258,19 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
         <div className="stat-card grande">
           <div className="stat-icon">💰</div>
           <div className="stat-info">
-            <span className="stat-label">Venta Total</span>
+            <span className="stat-label">Venta Total (Activa)</span>
             <span className="stat-value">S/ {ventaTotal.toFixed(2)}</span>
-            <span className="stat-subtitle">{ventasFiltradas.length} venta{ventasFiltradas.length !== 1 ? 's' : ''} {filtroFechaDesde || filtroFechaHasta ? 'filtrada' : 'realizada'}{ventasFiltradas.length !== 1 ? 's' : ''}</span>
+            <span className="stat-subtitle">{ventasFiltradas.filter(v => !v.anulada).length} venta{ventasFiltradas.filter(v => !v.anulada).length !== 1 ? 's' : ''} activa{ventasFiltradas.filter(v => !v.anulada).length !== 1 ? 's' : ''}</span>
           </div>
         </div>
+
+        {/* ... (Existing charts logic same, passed props) */}
 
         {/* Ventas por Método de Pago */}
         <div className="section-card">
           <h2>Ventas por Método de Pago</h2>
           <div className="metodos-pago-stats">
+            {/* ... same content ... */}
             <div className="metodo-pago-stat">
               <div className="metodo-header">
                 <span className="metodo-icon-stat">💵</span>
@@ -283,7 +295,7 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
           </div>
         </div>
 
-        {/* Venta por Subcategorías */}
+        {/* Venta por Subcategorías - same logic */}
         <div className="section-card">
           <h2>Venta por Subcategorías</h2>
           {Object.keys(ventasPorSubcategoria).length > 0 ? (
@@ -343,7 +355,7 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
           )}
         </div>
 
-        {/* Venta por Familias */}
+        {/* Venta por Categorías - same logic */}
         <div className="section-card">
           <h2>Venta por Categorías</h2>
           {Object.keys(ventasPorCategoria).length > 0 ? (
@@ -426,6 +438,61 @@ export default function Reportes({ ventas, onVolver }: ReportesProps) {
               <p className="sin-datos">No hay productos vendidos</p>
             )}
           </div>
+        </div>
+
+        {/* Historial de Transacciones */}
+        <div className="section-card full-width">
+          <h2>Historial de Transacciones</h2>
+          {ventasFiltradas.length > 0 ? (
+            <table className="tabla-transacciones">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>N° Ticket / ID</th>
+                  <th>Productos</th>
+                  <th>Método Pago</th>
+                  <th>Total</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ventasFiltradas.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).map(venta => (
+                  <tr key={venta.id} className={venta.anulada ? 'venta-anulada' : ''}>
+                    <td>{new Date(venta.fecha).toLocaleString('es-PE')}</td>
+                    <td>{venta.numeroTicket || venta.numeroBoleta || venta.id.slice(-6)}</td>
+                    <td>
+                      {venta.items.length} item{venta.items.length !== 1 ? 's' : ''}
+                      <span className="tooltip-items">
+                        ({venta.items.map(i => i.producto.nombre).join(', ')})
+                      </span>
+                    </td>
+                    <td>
+                      {venta.metodosPago.map(m => m.tipo).join(', ')}
+                    </td>
+                    <td className="font-bold">S/ {venta.total.toFixed(2)}</td>
+                    <td>
+                      {venta.anulada ? (
+                        <span className="badge-estado anulada">Anulada</span>
+                      ) : (
+                        <span className="badge-estado activa">Completada</span>
+                      )}
+                    </td>
+                    <td>
+                      <div className="acciones-row">
+                        <button className="btn-icon" title="Reimprimir" onClick={() => onReimprimirTicket(venta)}>🖨️</button>
+                        {!venta.anulada && (
+                          <button className="btn-icon delete" title="Anular Venta" onClick={() => onAnularVenta(venta.id)}>🚫</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="sin-datos">No hay transacciones en este periodo</p>
+          )}
         </div>
       </div>
     </div>

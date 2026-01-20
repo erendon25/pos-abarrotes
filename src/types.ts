@@ -1,6 +1,18 @@
 ﻿export interface Usuario {
   id: string
   nombre: string
+  usuario: string // Login username
+  password?: string
+  rol: 'admin' | 'venta'
+  permisos?: {
+    ventas: boolean
+    reportes: boolean
+    catalogo: boolean
+    categorias: boolean
+    ingresos: boolean
+    usuarios: boolean
+    configuracion: boolean
+  }
 }
 
 export interface Producto {
@@ -9,6 +21,8 @@ export interface Producto {
   marca?: string // Marca del producto (ej: "Gloria", "Primor")
   presentacion?: string // Presentación/tamaño (ej: "1kg", "500g", "Lata 400g")
   precio: number // Precio base
+  costo?: number // Costo de compra
+  activo?: boolean // Estado del producto
   preciosPorSubcategoria?: Record<string, number> // Precios por subcategoría
   categoria: string
   subcategoria?: string

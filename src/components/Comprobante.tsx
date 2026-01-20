@@ -1,3 +1,4 @@
+import React from 'react'
 import { Venta, ItemCarrito, ConfiguracionEmpresa } from '../types'
 import jsPDF from 'jspdf'
 import './Comprobante.css'
@@ -24,8 +25,8 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
     return {
       nombre: 'MINIMARKET COOL MARKET',
       ruc: '10444309852',
-      direccion: 'AV. PORONGOCHE 701 - PAUCARPA',
-      telefono: '933424625 / 999999999'
+      direccion: 'AV. PORONGOCHE 701 - PAUCARPATA',
+      telefono: '933424625'
     }
   }
 
@@ -140,14 +141,14 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
     doc.setFillColor(0, 0, 139) // Azul oscuro
     doc.rect(margin, yPos - 2, pageWidth - (margin * 2), 5, 'F')
     doc.setTextColor(255, 255, 255) // Texto blanco
-    
+
     doc.setFontSize(6)
     doc.setFont('helvetica', 'bold')
     doc.text('PRODUCTO', margin + 1, yPos)
     doc.text('CANT', margin + 32, yPos)
     doc.text('PRECIO', margin + 43, yPos)
     doc.text('TOTAL', margin + 60, yPos)
-    
+
     doc.setTextColor(0, 0, 0) // Volver a texto negro
     yPos += 6
 
@@ -162,7 +163,7 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
 
       const precio = obtenerPrecio(item)
       const total = precio * item.cantidad
-      
+
       let nombreProducto = item.producto.nombre
       if (item.producto.marca) {
         nombreProducto += ` - ${item.producto.marca}`
@@ -186,7 +187,7 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
         }
         yPos += 3
       })
-      
+
       if (nombreLines.length === 1) {
         yPos += 2
       }
@@ -242,26 +243,170 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
     const graciasWidth = doc.getTextWidth(graciasTexto)
     doc.text(graciasTexto, (pageWidth - graciasWidth) / 2, yPos)
 
-    // Abrir en nueva ventana para imprimir
+    // Insertar comando de impresión automática JS en el PDF
+    doc.autoPrint()
+
+    // Generar PDF
     const pdfBlob = doc.output('blob')
     const pdfUrl = URL.createObjectURL(pdfBlob)
+
+    // Abrir en nueva ventana (Más confiable que iframe oculto para navegadores modernos)
     const printWindow = window.open(pdfUrl, '_blank')
-    
+
     if (printWindow) {
+      // Intentar forzar impresión si el autoPrint del PDF no se ejecuta
       printWindow.onload = () => {
         setTimeout(() => {
           printWindow.print()
-          setTimeout(() => {
-            printWindow.close()
-            URL.revokeObjectURL(pdfUrl)
-          }, 1000)
         }, 500)
       }
     } else {
-      // Si no se puede abrir ventana, descargar directamente
-      doc.save(`${numeroComprobante}.pdf`)
+      // Fallback: Si el popup se bloqueó, intentar método iframe visible (1px)
+      const iframe = document.createElement('iframe')
+      iframe.style.position = 'absolute'
+      iframe.style.width = '1px'
+      iframe.style.height = '1px'
+      iframe.style.top = '-10px'
+      iframe.style.left = '-10px'
+      iframe.src = pdfUrl
+      document.body.appendChild(iframe)
+
+      iframe.onload = () => {
+        setTimeout(() => {
+          if (iframe.contentWindow) iframe.contentWindow.print()
+          // Limpieza después de imprimir (estimado)
+          setTimeout(() => document.body.removeChild(iframe), 60000)
+        }, 500)
+      }
     }
   }
+
+  const imprimirTicketHTML = () => {
+    // Construir HTML del ticket
+    const htmlContent = `
+        <html>
+        <head>
+          <style>
+            body { 
+              font-family: 'Courier New', Courier, monospace; 
+              width: 80mm; 
+              margin: 0; 
+              padding: 5px; 
+              font-size: 12px; 
+            }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            .table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .table th { border-bottom: 1px dashed #000; text-align: left; font-size: 11px; }
+            .table td { font-size: 11px; padding: 2px 0; }
+            .text-right { text-align: right; }
+            .border-top { border-top: 1px dashed #000; margin-top: 5px; padding-top: 5px; }
+            .margin-y { margin: 10px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="center bold" style="font-size: 14px;">${empresa.nombre}</div>
+          <div class="center">RUC: ${empresa.ruc}</div>
+          <div class="center">${empresa.direccion}</div>
+          <div class="center">${empresa.telefono}</div>
+          
+          <div class="margin-y center bold">
+            ${esBoleta ? 'BOLETA' : 'TICKET'}: ${numeroComprobante}
+          </div>
+          
+          <div>FECHA: ${formatearFecha(venta.fecha)}</div>
+          <div>CAJERO: ${venta.usuario?.nombre || 'General'}</div>
+          <div>CLIENTE: ${venta.usuario?.nombre || 'Publico General'}</div>
+          
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="width: 40%">DESCR</th>
+                <th style="width: 15%" class="center">CANT</th>
+                <th style="width: 20%" class="text-right">P.U.</th>
+                <th style="width: 25%" class="text-right">IMPORTE</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${venta.items.map(item => {
+      const precio = obtenerPrecio(item);
+      const total = precio * item.cantidad;
+      let nombre = item.producto.nombre + (item.subcategoriaSeleccionada ? ` (${item.subcategoriaSeleccionada})` : '');
+      return `
+                    <tr>
+                      <td>${nombre.substring(0, 20)}</td>
+                      <td class="center">${item.cantidad}</td>
+                      <td class="text-right">${precio.toFixed(2)}</td>
+                      <td class="text-right">${total.toFixed(2)}</td>
+                    </tr>
+                  `;
+    }).join('')}
+            </tbody>
+          </table>
+          
+          <div class="border-top margin-y">
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;">
+              <span>TOTAL:</span>
+              <span>S/ ${venta.total.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div class="margin-y">
+            ${venta.metodosPago.map(m => `
+              <div style="display: flex; justify-content: space-between;">
+                <span>${m.tipo.toUpperCase()}:</span>
+                <span>S/ ${m.monto.toFixed(2)}</span>
+              </div>
+            `).join('')}
+             <div style="display: flex; justify-content: space-between;">
+                <span>VUELTO:</span>
+                <span>S/ ${(venta.vuelto || 0).toFixed(2)}</span>
+              </div>
+          </div>
+          
+          <div class="center margin-y">
+            ¡ GRACIAS POR SU COMPRA !
+          </div>
+        </body>
+        </html>
+      `;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(htmlContent);
+      doc.close();
+
+      // Esperar a que cargue imagen/fuentes si hubiera
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        // Remover después de imprimir
+        setTimeout(() => document.body.removeChild(iframe), 1000);
+      }, 500);
+    }
+  }
+
+  // Ref para evitar doble impresión
+  const printedRef = React.useRef(false)
+
+  // Auto-imprimir al cargar el componente
+  React.useEffect(() => {
+    if (!venta.anulada && !printedRef.current) {
+      printedRef.current = true
+      // Trigger HTML print automatically
+      setTimeout(() => {
+        imprimirTicketHTML()
+      }, 500)
+    }
+  }, [])
 
   return (
     <div className="modal-overlay" onClick={onCerrar}>
@@ -269,7 +414,7 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
         <div className="comprobante-header">
           <h2>{esBoleta ? 'BOLETA' : 'TICKET'}</h2>
           <div className="comprobante-acciones">
-            <button 
+            <button
               className={`btn-imprimir ${venta.anulada ? 'disabled' : ''}`}
               onClick={handleImprimir}
               disabled={venta.anulada}
