@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Producto, Categoria } from '../types'
+import { useState, useEffect } from 'react'
+import { Producto, Categoria, Usuario } from '../types'
 import { doc, setDoc, deleteDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import './CatalogoProductos.css'
@@ -8,9 +8,11 @@ interface CatalogoProductosProps {
     productos: Producto[]
     setProductos: (productos: Producto[]) => void
     categorias: Categoria[]
+    usuario: Usuario
 }
 
-export default function CatalogoProductos({ productos, setProductos, categorias }: CatalogoProductosProps) {
+export default function CatalogoProductos({ productos, setProductos, categorias, usuario }: CatalogoProductosProps) {
+    // ... (rest of state logic usually) ...
     const [busqueda, setBusqueda] = useState('')
     const [mostrarModal, setMostrarModal] = useState(false)
     const [productoEditar, setProductoEditar] = useState<Producto | null>(null)
@@ -73,15 +75,18 @@ export default function CatalogoProductos({ productos, setProductos, categorias 
             id: productoEditar ? productoEditar.id : Date.now().toString(),
             nombre,
             codigoBarras,
-            precio: parseFloat(precio) || 0,
-            costo: parseFloat(costo) || 0,
+            // Keep original values if edit is not allowed, or use parsed values
+            precio: usuario.permisos.catalogo_editar_precio ? (parseFloat(precio) || 0) : (productoEditar?.precio || 0),
+            costo: usuario.permisos.catalogo_editar_precio ? (parseFloat(costo) || 0) : (productoEditar?.costo || 0),
             categoria: categoria || 'General',
-            stock: parseInt(stock) || 0,
+            // Only update stock if allowed. Else keep original (or 0 for new)
+            stock: usuario.permisos.catalogo_editar_stock ? (parseInt(stock) || 0) : (productoEditar?.stock || 0),
             activo: true,
             sincronizado: true, // Asumimos sincronizado al guardar directo
             preciosPorSubcategoria: Object.keys(preciosFinales).length > 0 ? preciosFinales : undefined
         }
 
+        // ... (Update Logic) ...
         // Optimistic update
         let nuevosProductos;
         if (productoEditar) {
@@ -117,33 +122,19 @@ export default function CatalogoProductos({ productos, setProductos, categorias 
         }
     }
 
+    // ... (Filter Logic) ...
     const productosFiltrados = productos.filter(p =>
         p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
         p.codigoBarras?.toLowerCase().includes(busqueda.toLowerCase()) ||
         p.categoria.toLowerCase().includes(busqueda.toLowerCase())
     )
 
-    const toggleEstado = async (id: string, estadoActual: boolean | undefined) => {
-        const nuevoEstado = estadoActual === false ? true : false
-        const nuevosProductos = productos.map(p =>
-            p.id === id ? { ...p, activo: nuevoEstado } : p
-        )
-        setProductos(nuevosProductos)
-        localStorage.setItem('pos_productos', JSON.stringify(nuevosProductos))
-
-        // Update Firebase
-        try {
-            const prod = productos.find(p => p.id === id)
-            if (prod) {
-                await setDoc(doc(db, "productos", id), { ...prod, activo: nuevoEstado }, { merge: true })
-            }
-        } catch (error) {
-            console.error("Error updating status in Firebase:", error)
-        }
-    }
-
-    // Get selected category object to see subcategories
+    // ... (Categoria object) ...
     const categoriaObj = categorias.find(c => c.nombre === categoria)
+
+    // Per-permission Logic
+    const allowEditStock = usuario.permisos.catalogo_editar_stock
+    const allowEditPrice = usuario.permisos.catalogo_editar_precio
 
     return (
         <div className="catalogo-container">
@@ -152,6 +143,7 @@ export default function CatalogoProductos({ productos, setProductos, categorias 
                     <h2>Catálogo de Productos</h2>
                     <p>Administra los items disponibles para venta y compra.</p>
                 </div>
+                {/* Check creation permission */}
                 <div className="header-actions">
                     <div className="search-box">
                         <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -162,9 +154,11 @@ export default function CatalogoProductos({ productos, setProductos, categorias 
                             onChange={(e) => setBusqueda(e.target.value)}
                         />
                     </div>
-                    <button className="btn-nuevo-prod" onClick={() => abrirModal()}>
-                        + Nuevo
-                    </button>
+                    {usuario.permisos.catalogo_crear && (
+                        <button className="btn-nuevo-prod" onClick={() => abrirModal()}>
+                            + Nuevo
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -196,8 +190,12 @@ export default function CatalogoProductos({ productos, setProductos, categorias 
                                 <td className="font-bold">S/ {p.precio.toFixed(2)}</td>
                                 <td>
                                     <div className="acciones-row">
-                                        <button className="btn-icon edit" title="Editar" onClick={() => abrirModal(p)}>✏️</button>
-                                        <button className="btn-icon delete" title="Eliminar" onClick={() => eliminarProducto(p.id)}>🗑️</button>
+                                        {usuario.permisos.catalogo_editar && (
+                                            <button className="btn-icon edit" title="Editar" onClick={() => abrirModal(p)}>✏️</button>
+                                        )}
+                                        {usuario.permisos.catalogo_eliminar && (
+                                            <button className="btn-icon delete" title="Eliminar" onClick={() => eliminarProducto(p.id)}>🗑️</button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -232,11 +230,11 @@ export default function CatalogoProductos({ productos, setProductos, categorias 
                             <div className="form-row">
                                 <div className="form-group-modal">
                                     <label>Precio Venta (Base)</label>
-                                    <input type="number" step="0.01" required value={precio} onChange={e => setPrecio(e.target.value)} />
+                                    <input type="number" step="0.01" required value={precio} onChange={e => setPrecio(e.target.value)} disabled={!allowEditPrice} />
                                 </div>
                                 <div className="form-group-modal">
                                     <label>Costo Compra</label>
-                                    <input type="number" step="0.01" value={costo} onChange={e => setCosto(e.target.value)} />
+                                    <input type="number" step="0.01" value={costo} onChange={e => setCosto(e.target.value)} disabled={!allowEditPrice} />
                                 </div>
                             </div>
                             <div className="form-row">
@@ -259,7 +257,14 @@ export default function CatalogoProductos({ productos, setProductos, categorias 
                                 </div>
                                 <div className="form-group-modal">
                                     <label>Stock Inicial</label>
-                                    <input type="number" value={stock} onChange={e => setStock(e.target.value)} />
+                                    <input
+                                        type="number"
+                                        value={stock}
+                                        onChange={e => setStock(e.target.value)}
+                                        disabled={!allowEditStock}
+                                        title={!allowEditStock ? "Solo modificable en Inventario (o permiso de Almacén)" : ""}
+                                    />
+                                    {!allowEditStock && <small className="text-xs text-red-500">Solo editable en Inventario</small>}
                                 </div>
                             </div>
 

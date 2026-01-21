@@ -1,8 +1,16 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
+
+// Configure logging
+log.transports.file.level = 'info';
+autoUpdater.logger = log;
+
+let mainWindow;
 
 function createWindow() {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
@@ -24,6 +32,12 @@ function createWindow() {
   // Open DevTools in development
   if (process.env.ELECTRON_START_URL) {
     mainWindow.webContents.openDevTools();
+  } else {
+    // In production, check for updates
+    // Check for updates 2 seconds after launch to ensure window is ready
+    setTimeout(() => {
+      autoUpdater.checkForUpdatesAndNotify();
+    }, 2000);
   }
 }
 
@@ -59,8 +73,44 @@ app.whenReady().then(() => {
   });
 });
 
+// Handle manual update check
+ipcMain.on('check-for-updates', () => {
+  log.info('Checking for updates manually...');
+  autoUpdater.checkForUpdatesAndNotify();
+});
+
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// Auto Updater Events
+autoUpdater.on('update-available', () => {
+  log.info('Update available.');
+  if (mainWindow) mainWindow.webContents.send('update_available');
+});
+
+autoUpdater.on('update-downloaded', () => {
+  log.info('Update downloaded.');
+  if (mainWindow) mainWindow.webContents.send('update_downloaded');
+
+  // Ask user to restart now or later? 
+  // For now, let's just install automatically on quit (default behavior)
+  // Or force it:
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'Actualización lista',
+    message: 'Una nueva versión se ha descargado. Se instalará al cerrar la aplicación.',
+    buttons: ['Reiniciar ahora', 'Después']
+  }).then((result) => {
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall();
+    }
+  });
+});
+
+autoUpdater.on('error', (err) => {
+  log.error('Error in auto-updater: ' + err);
 });

@@ -433,6 +433,34 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
           </div>
         </div>
 
+        {/* Actualizaciones */}
+        <div className="config-section">
+          <h2>Actualizaciones del Sistema</h2>
+          <div className="config-info">
+            Conecta con GitHub para buscar la última versión disponible del sistema.
+          </div>
+          <div className="config-actions" style={{ justifyContent: 'flex-start', marginTop: '15px' }}>
+            <button
+              className="btn-guardar-config"
+              style={{ backgroundColor: '#333' }}
+              onClick={() => {
+                const ipcRenderer = (window as any).require ? (window as any).require('electron').ipcRenderer : null;
+                if (ipcRenderer) {
+                  ipcRenderer.send('check-for-updates');
+                  alert('🔍 Buscando actualizaciones en segundo plano...');
+                } else {
+                  alert('Funcionalidad solo disponible en la versión de escritorio.');
+                }
+              }}
+            >
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ marginRight: '8px' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Buscar Actualizaciones
+            </button>
+          </div>
+        </div>
+
         <div className="config-actions">
           <button className="btn-guardar-config" onClick={guardarConfiguracion}>
             Guardar

@@ -16,7 +16,7 @@ import CatalogoProductos from './components/CatalogoProductos'
 import GestionCategorias from './components/GestionCategorias'
 import Inventario from './components/Inventario'
 import { obtenerSiguienteTicket, obtenerSiguienteBoleta } from './utils/numeracion'
-import { collection, getDocs } from 'firebase/firestore'
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore'
 import { db } from './firebase'
 import LectorCodigoBarras from './components/LectorCodigoBarras'
 import './App.css'
@@ -129,25 +129,102 @@ function App() {
       if (saved) {
         const loadedUsers = JSON.parse(saved)
         if (Array.isArray(loadedUsers) && loadedUsers.length > 0) {
-          // Filtrar duplicados por ID
+          // Filtrar duplicados por ID y migrar permisos
           const map = new Map();
+
+          // Helper para default permissions
+          const getDefaults = (rol: string) => {
+            if (rol === 'almacen') return {
+              ventas: false, reportes: false, catalogo: true, categorias: true,
+              ingresos: true, usuarios: false, configuracion: false, inventario: true,
+              ventas_anular: false, ventas_anular_sin_clave: false,
+              catalogo_crear: true, catalogo_editar: true, catalogo_eliminar: false,
+              catalogo_editar_stock: true, catalogo_editar_precio: true, inventario_realizar: true
+            };
+            // Admin default
+            if (rol === 'admin') return {
+              ventas: true, reportes: true, catalogo: true, categorias: true,
+              ingresos: true, usuarios: true, configuracion: true, inventario: true,
+              ventas_anular: true, ventas_anular_sin_clave: true,
+              catalogo_crear: true, catalogo_editar: true, catalogo_eliminar: true,
+              catalogo_editar_stock: false, catalogo_editar_precio: true, inventario_realizar: true
+            };
+            // Venta default
+            return {
+              ventas: true, reportes: true, catalogo: true, categorias: false,
+              ingresos: false, usuarios: false, configuracion: false, inventario: true,
+              ventas_anular: true, ventas_anular_sin_clave: false, // Vendedor pide clave
+              catalogo_crear: false, catalogo_editar: false, catalogo_eliminar: false,
+              catalogo_editar_stock: false, catalogo_editar_precio: false, inventario_realizar: true
+            };
+          }
+
           loadedUsers.forEach((u: Usuario) => {
-            if (!map.has(u.id)) map.set(u.id, u);
+            if (!map.has(u.id)) {
+              // Merge permissions if missing
+              const defaults = getDefaults(u.rol);
+              // Si u.permisos es undefined, o le faltan keys, rellenar
+              const permisosCompletos = { ...defaults, ...(u.permisos || {}) };
+              // Force critical new permissions if they are not explicitly set (checking keys)
+              if (permisosCompletos.ventas_anular === undefined) permisosCompletos.ventas_anular = defaults.ventas_anular;
+
+              // IMPORTANT: Override legacy admin permissions to ensure new keys exist
+              if (u.rol === 'admin') {
+                // Ensure admin always has these enabled if not present
+                if (permisosCompletos.ventas_anular_sin_clave === undefined) permisosCompletos.ventas_anular_sin_clave = true;
+              }
+
+              map.set(u.id, { ...u, permisos: permisosCompletos });
+            }
           });
-          return Array.from(map.values());
+
+          // Ensure default almacen exists if not found? No, user might have deleted it. 
+          // But user asked to create it default. Let's add it if 'almacen' username doesn't exist.
+          const usuariosArr = Array.from(map.values()) as Usuario[];
+          if (!usuariosArr.find(u => u.usuario === 'almacen')) {
+            usuariosArr.push({
+              id: 'almacen_default', nombre: 'Almacenero', usuario: 'almacen', password: 'almacen', rol: 'almacen',
+              permisos: getDefaults('almacen')
+            });
+          }
+
+          return usuariosArr;
         }
       }
     } catch (e) { }
 
     // Usuario inicial solo si no hay nada guardado
-    return [{
-      id: '1',
-      nombre: 'Administrador Principal',
-      usuario: 'admin',
-      password: 'admin',
-      rol: 'admin',
-      permisos: { ventas: true, reportes: true, catalogo: true, categorias: true, ingresos: true, usuarios: true, configuracion: true }
-    }]
+    const adminPermisos = {
+      ventas: true, reportes: true, catalogo: true, categorias: true,
+      ingresos: true, usuarios: true, configuracion: true, inventario: true,
+      ventas_anular: true, ventas_anular_sin_clave: true,
+      catalogo_crear: true, catalogo_editar: true, catalogo_eliminar: true,
+      catalogo_editar_stock: false, // Admin restricted here as per request? "admin y vendedor solo pueden editarlo en inventario"
+      catalogo_editar_precio: true,
+      inventario_realizar: true
+    }
+
+    // Almacen user
+    const almacenPermisos = {
+      ventas: false, reportes: false, catalogo: true, categorias: true,
+      ingresos: true, usuarios: false, configuracion: false, inventario: true,
+      ventas_anular: false, ventas_anular_sin_clave: false,
+      catalogo_crear: true, catalogo_editar: true, catalogo_eliminar: false,
+      catalogo_editar_stock: true, // "usuario almacen puede editar el stock de mercaderia en catalogo"
+      catalogo_editar_precio: true,
+      inventario_realizar: true
+    }
+
+    return [
+      {
+        id: '1', nombre: 'Administrador', usuario: 'admin', password: 'admin', rol: 'admin',
+        permisos: adminPermisos
+      },
+      {
+        id: '2', nombre: 'Almacenero', usuario: 'almacen', password: 'almacen', rol: 'almacen',
+        permisos: almacenPermisos
+      }
+    ]
   })
 
   // Load products from Firebase (prioritize DB over local for synchronization)
@@ -543,10 +620,28 @@ function App() {
       motivo: motivo,
       usuario: currentUser || undefined,
       cantidadCajas: nuevoStockCaja, // Snapshot of new state? Or diff? Definition says boxes count.
-      cantidadUnidades: nuevoStockUnidad
+      cantidadUnidades: nuevoStockUnidad,
+      costoUnitario: producto.costo,
+      precioUnitario: producto.precio
     }
 
     setMovimientos(prev => [...prev, nuevoMovimiento])
+
+    // 3. Sync to Firebase
+    try {
+      const prodRef = doc(db, "productos", producto.id)
+      const updates: any = {
+        stock: nuevoStock,
+        sincronizado: true
+      }
+      if (nuevoStockCaja !== undefined) updates.stockCaja = nuevoStockCaja
+      if (nuevoStockUnidad !== undefined) updates.stockUnidad = nuevoStockUnidad
+
+      updateDoc(prodRef, updates)
+    } catch (e) {
+      console.error("Error updating stock in Firebase:", e)
+      // Keep synced=false in local state (already set above)
+    }
 
     alert(`Stock ajustado correctamente. Diferencia: ${diff > 0 ? '+' : ''}${diff}. Motivo: ${motivo}`)
   }
@@ -649,6 +744,7 @@ function App() {
         {vista === 'reportes' && (
           <Reportes
             ventas={ventas}
+            usuario={currentUser} // Pass permissions
             onVolver={() => setVista('venta')}
             onAnularVenta={async (id) => {
               if (!confirm('¿Estás seguro de anular esta venta? El stock será devuelto.')) return
@@ -686,6 +782,7 @@ function App() {
             productos={productos}
             setProductos={setProductos}
             categorias={categorias}
+            usuario={currentUser} // Pass permissions
           />
         )}
 

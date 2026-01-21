@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react'
-import { MovimientoInventario } from '../types'
+import { MovimientoInventario, Producto } from '../types'
 import './HistorialInventario.css'
 
 interface HistorialInventarioProps {
     movimientos: MovimientoInventario[]
+    productos: Producto[]
     onVolver: () => void
 }
 
-export default function HistorialInventario({ movimientos, onVolver }: HistorialInventarioProps) {
+export default function HistorialInventario({ movimientos, productos, onVolver }: HistorialInventarioProps) {
     // Fechas en formato YYYY-MM-DD para inputs date
     const fechaHoy = new Date().toISOString().split('T')[0]
     const [fechaInicio, setFechaInicio] = useState(fechaHoy)
@@ -40,6 +41,25 @@ export default function HistorialInventario({ movimientos, onVolver }: Historial
 
     const totalDiferencias = movimientosFiltrados.reduce((acc, m) => acc + (m.cantidadNueva - m.cantidadAnterior), 0)
 
+    const totalValor = movimientosFiltrados.reduce((acc, m) => {
+        const diff = m.cantidadNueva - m.cantidadAnterior
+        // Use precioUnitario if available, otherwise find current product price
+        const precio = m.precioUnitario ?? (productos.find(p => p.id === m.productoId)?.precio || 0)
+        return acc + (diff * precio)
+    }, 0)
+
+    const resumenPorMotivo = movimientosFiltrados.reduce((acc, m) => {
+        const motivo = m.motivo || 'Sin Motivo'
+        if (!acc[motivo]) acc[motivo] = { cantidad: 0, valor: 0 }
+
+        const diff = m.cantidadNueva - m.cantidadAnterior
+        const precio = m.precioUnitario ?? (productos.find(p => p.id === m.productoId)?.precio || 0)
+
+        acc[motivo].cantidad += diff
+        acc[motivo].valor += (diff * precio)
+        return acc
+    }, {} as Record<string, { cantidad: number, valor: number }>)
+
     // Agrupar visualmente por sesiones? O solo lista plana?
     // Lista plana es más fácil de filtrar y ordenar.
 
@@ -71,14 +91,40 @@ export default function HistorialInventario({ movimientos, onVolver }: Historial
 
             <div className="historial-resumen">
                 <div className="card-resumen">
-                    <span>Movimientos Encontrados</span>
+                    <span>Movimientos</span>
                     <strong>{movimientosFiltrados.length}</strong>
                 </div>
                 <div className="card-resumen">
-                    <span>Balance de Diferencias (Unid.)</span>
+                    <span>Diferencia (Unid.)</span>
                     <strong style={{ color: totalDiferencias < 0 ? 'red' : totalDiferencias > 0 ? 'green' : 'inherit' }}>
                         {totalDiferencias > 0 ? '+' : ''}{totalDiferencias}
                     </strong>
+                </div>
+                <div className="card-resumen">
+                    <span>Diferencia (Valor)</span>
+                    <strong style={{ color: totalValor < 0 ? 'red' : totalValor > 0 ? 'green' : 'inherit' }}>
+                        S/ {Math.abs(totalValor).toFixed(2)}
+                    </strong>
+                </div>
+            </div>
+
+            <div className="motivos-breakdown text-sm mb-4 bg-white p-3 rounded shadow-sm">
+                <h4 style={{ margin: '0 0 0.5rem 0', borderBottom: '1px solid #eee', paddingBottom: '0.2rem' }}>Desglose por Motivo</h4>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    {Object.entries(resumenPorMotivo).map(([motivo, vals]) => (
+                        <div key={motivo} style={{ padding: '0.5rem', background: '#f8fafc', borderRadius: '4px', minWidth: '120px' }}>
+                            <div style={{ fontWeight: 600, color: '#475569' }}>{motivo}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9em' }}>
+                                <span>Cant:</span>
+                                <span style={{ fontWeight: 'bold', color: vals.cantidad < 0 ? 'red' : 'green' }}>{vals.cantidad > 0 ? '+' : ''}{vals.cantidad}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9em' }}>
+                                <span>Monto:</span>
+                                <span>S/ {vals.valor.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    ))}
+                    {Object.keys(resumenPorMotivo).length === 0 && <span style={{ fontStyle: 'italic', color: '#888' }}>Sin datos...</span>}
                 </div>
             </div>
 

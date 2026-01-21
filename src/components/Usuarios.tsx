@@ -7,14 +7,28 @@ interface UsuariosProps {
     setUsuarios: (usuarios: Usuario[]) => void
 }
 
+// ... imports
+
 const PERMISOS_DEFAULT = {
-    ventas: false,
+    // Módulos
+    ventas: true,
     reportes: false,
-    catalogo: false,
+    catalogo: true,
     categorias: false,
     ingresos: false,
     usuarios: false,
-    configuracion: false
+    configuracion: false,
+    inventario: true,
+
+    // Acciones
+    ventas_anular: false,
+    ventas_anular_sin_clave: false,
+    catalogo_crear: false,
+    catalogo_editar: false,
+    catalogo_eliminar: false,
+    catalogo_editar_stock: false,
+    catalogo_editar_precio: false,
+    inventario_realizar: true
 }
 
 export default function Usuarios({ usuarios, setUsuarios }: UsuariosProps) {
@@ -25,7 +39,7 @@ export default function Usuarios({ usuarios, setUsuarios }: UsuariosProps) {
     const [nombre, setNombre] = useState('')
     const [usuarioLogin, setUsuarioLogin] = useState('')
     const [password, setPassword] = useState('')
-    const [rol, setRol] = useState<'admin' | 'venta'>('venta')
+    const [rol, setRol] = useState<'admin' | 'venta' | 'almacen'>('venta')
     const [permisos, setPermisos] = useState(PERMISOS_DEFAULT)
 
     const abrirModal = (usuario?: Usuario) => {
@@ -35,7 +49,8 @@ export default function Usuarios({ usuarios, setUsuarios }: UsuariosProps) {
             setUsuarioLogin(usuario.usuario)
             setPassword(usuario.password || '')
             setRol(usuario.rol)
-            setPermisos(usuario.permisos || PERMISOS_DEFAULT)
+            // Ensure we merge with defaults to catch new keys
+            setPermisos({ ...PERMISOS_DEFAULT, ...(usuario.permisos || {}) })
         } else {
             setUsuarioEditar(null)
             setNombre('')
@@ -50,13 +65,18 @@ export default function Usuarios({ usuarios, setUsuarios }: UsuariosProps) {
     const guardarUsuario = (e: React.FormEvent) => {
         e.preventDefault()
 
-        // Lógica clave automática si es venta (según requerimiento)
+        // Lógica clave automática
         let finalPassword = password
         if (rol === 'venta' && !password && !usuarioEditar) {
             finalPassword = 'venta'
+        } else if (rol === 'almacen' && !password && !usuarioEditar) {
+            finalPassword = 'almacen'
         } else if (!password && usuarioEditar) {
             finalPassword = usuarioEditar.password || 'venta'
         }
+
+        // NO hardcodear permisos por rol 'admin'. El usuario quiere editarlos.
+        // Pero al cambiar de rol en el select, deberíamos quizás pre-llenar defaults. (Lógica en el onChange del select)
 
         const nuevoUsuario: Usuario = {
             id: usuarioEditar ? usuarioEditar.id : Date.now().toString(),
@@ -64,9 +84,7 @@ export default function Usuarios({ usuarios, setUsuarios }: UsuariosProps) {
             usuario: usuarioLogin,
             password: finalPassword,
             rol,
-            permisos: rol === 'admin' ?
-                { ventas: true, reportes: true, catalogo: true, categorias: true, ingresos: true, usuarios: true, configuracion: true }
-                : permisos
+            permisos: permisos
         }
 
         if (usuarioEditar) {
@@ -92,8 +110,48 @@ export default function Usuarios({ usuarios, setUsuarios }: UsuariosProps) {
         }
     }
 
+    // Helper to set defaults based on role selection
+    const handleRolChange = (newRol: 'admin' | 'venta' | 'almacen') => {
+        setRol(newRol)
+        if (newRol === 'admin') {
+            setPermisos({
+                ventas: true, reportes: true, catalogo: true, categorias: true, ingresos: true, usuarios: true, configuracion: true, inventario: true,
+                ventas_anular: true, ventas_anular_sin_clave: true,
+                catalogo_crear: true, catalogo_editar: true, catalogo_eliminar: true,
+                catalogo_editar_stock: false, catalogo_editar_precio: true,
+                inventario_realizar: true
+            })
+        } else if (newRol === 'almacen') {
+            setPermisos({
+                ventas: false, reportes: false, catalogo: true, categorias: true, ingresos: true, usuarios: false, configuracion: false, inventario: true,
+                ventas_anular: false, ventas_anular_sin_clave: false,
+                catalogo_crear: true, catalogo_editar: true, catalogo_eliminar: false,
+                catalogo_editar_stock: true, catalogo_editar_precio: true,
+                inventario_realizar: true
+            })
+        } else {
+            // Venta default
+            setPermisos(PERMISOS_DEFAULT)
+        }
+    }
+
+    const renderSwitch = (label: string, key: keyof typeof permisos) => (
+        <label key={key} className="permiso-item">
+            <span>{label}</span>
+            <div className="switch">
+                <input
+                    type="checkbox"
+                    checked={permisos[key]}
+                    onChange={e => setPermisos({ ...permisos, [key]: e.target.checked })}
+                />
+                <span className="slider round"></span>
+            </div>
+        </label>
+    )
+
     return (
         <div className="usuarios-container">
+            {/* Header ... */}
             <div className="usuarios-header">
                 <div>
                     <h2>Usuarios y Accesos</h2>
@@ -122,7 +180,7 @@ export default function Usuarios({ usuarios, setUsuarios }: UsuariosProps) {
                                 <td>{u.nombre}</td>
                                 <td>
                                     <span className={`badge-rol ${u.rol}`}>
-                                        {u.rol === 'admin' ? 'Administrador' : 'Vendedor'}
+                                        {u.rol === 'admin' ? 'Administrador' : u.rol === 'almacen' ? 'Almacén' : 'Vendedor'}
                                     </span>
                                 </td>
                                 <td>
@@ -131,7 +189,7 @@ export default function Usuarios({ usuarios, setUsuarios }: UsuariosProps) {
                                 <td>
                                     <div className="acciones-user">
                                         <button onClick={() => abrirModal(u)} className="btn-icon-user edit">✏️</button>
-                                        {u.usuario !== 'admin' && (
+                                        {u.usuario !== 'admin' && ( // Allow deleting others
                                             <button onClick={() => eliminarUsuario(u.id)} className="btn-icon-user delete">🗑️</button>
                                         )}
                                     </div>
@@ -144,7 +202,7 @@ export default function Usuarios({ usuarios, setUsuarios }: UsuariosProps) {
 
             {mostrarModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content">
+                    <div className="modal-content" style={{ maxWidth: '700px' }}>
                         <div className="modal-header">
                             <h3>{usuarioEditar ? 'Editar Usuario' : 'Nuevo Usuario'}</h3>
                             <button onClick={() => setMostrarModal(false)}>×</button>
@@ -169,10 +227,11 @@ export default function Usuarios({ usuarios, setUsuarios }: UsuariosProps) {
 
                             <div className="form-row">
                                 <div className="form-group-modal">
-                                    <label>Nivel de Acceso</label>
-                                    <select value={rol} onChange={e => setRol(e.target.value as any)}>
-                                        <option value="venta">Vendedor / Personalizado</option>
-                                        <option value="admin">Administrador (Acceso Total)</option>
+                                    <label>Rol (Define permisos base)</label>
+                                    <select value={rol} onChange={e => handleRolChange(e.target.value as any)}>
+                                        <option value="venta">Vendedor</option>
+                                        <option value="almacen">Almacenero</option>
+                                        <option value="admin">Administrador</option>
                                     </select>
                                 </div>
                                 <div className="form-group-modal">
@@ -181,31 +240,39 @@ export default function Usuarios({ usuarios, setUsuarios }: UsuariosProps) {
                                         type="password"
                                         value={password}
                                         onChange={e => setPassword(e.target.value)}
-                                        placeholder={!usuarioEditar && rol === 'venta' ? 'Por defecto: venta' : ''}
+                                        placeholder={!usuarioEditar && rol !== 'admin' ? `Por defecto: ${rol}` : ''}
                                     />
                                 </div>
                             </div>
 
-                            {rol !== 'admin' && (
-                                <div className="permisos-section">
-                                    <h4>🛡️ Permisos por Módulo</h4>
-                                    <div className="permisos-grid">
-                                        {Object.keys(PERMISOS_DEFAULT).map(p => (
-                                            <label key={p} className="permiso-item">
-                                                <span>{p.charAt(0).toUpperCase() + p.slice(1)}</span>
-                                                <div className="switch">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={permisos[p as keyof typeof permisos]}
-                                                        onChange={e => setPermisos({ ...permisos, [p]: e.target.checked })}
-                                                    />
-                                                    <span className="slider round"></span>
-                                                </div>
-                                            </label>
-                                        ))}
-                                    </div>
+                            <div className="permisos-section">
+                                <h4 style={{ borderBottom: '1px solid #eee', paddingBottom: '5px', marginBottom: '10px' }}>🛡️ Accesos a Módulos</h4>
+                                <div className="permisos-grid">
+                                    {renderSwitch("Ventas (POS)", "ventas")}
+                                    {renderSwitch("Reportes", "reportes")}
+                                    {renderSwitch("Catálogo", "catalogo")}
+                                    {renderSwitch("Inventario", "inventario")}
+                                    {renderSwitch("Ingresos (Compras)", "ingresos")}
+                                    {renderSwitch("Categorías", "categorias")}
+                                    {renderSwitch("Usuarios", "usuarios")}
+                                    {renderSwitch("Configuración", "configuracion")}
                                 </div>
-                            )}
+
+                                <h4 style={{ borderBottom: '1px solid #eee', paddingBottom: '5px', marginBottom: '10px', marginTop: '15px' }}>🔧 Permisos Específicos</h4>
+                                <div className="permisos-grid">
+                                    {renderSwitch("Anular Ventas", "ventas_anular")}
+                                    {renderSwitch("Anular SIN Clave Admin", "ventas_anular_sin_clave")}
+
+                                    {renderSwitch("Crear Productos", "catalogo_crear")}
+                                    {renderSwitch("Editar Productos", "catalogo_editar")}
+                                    {renderSwitch("Eliminar Productos", "catalogo_eliminar")}
+
+                                    {renderSwitch("Editar PRECIO en Catálogo", "catalogo_editar_precio")}
+                                    {renderSwitch("Editar STOCK en Catálogo", "catalogo_editar_stock")}
+
+                                    {renderSwitch("Realizar Ajustes Inventario", "inventario_realizar")}
+                                </div>
+                            </div>
 
                             <div className="modal-actions">
                                 <button type="button" onClick={() => setMostrarModal(false)} className="btn-cancel">Cancelar</button>

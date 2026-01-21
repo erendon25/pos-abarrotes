@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Venta, ItemCarrito } from '../types'
+import { Venta, ItemCarrito, Usuario } from '../types'
 import './Reportes.css'
 
 interface ReportesProps {
@@ -7,6 +7,7 @@ interface ReportesProps {
   onVolver: () => void
   onAnularVenta: (id: string) => void
   onReimprimirTicket: (venta: Venta) => void
+  usuario: Usuario
 }
 
 interface ProductoVendido {
@@ -17,12 +18,50 @@ interface ProductoVendido {
   subcategoria?: string
 }
 
-export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimirTicket }: ReportesProps) {
+export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimirTicket, usuario }: ReportesProps) {
   // ... (existing state)
   const [categoriaExpandida, setCategoriaExpandida] = useState<string | null>(null)
   const [subcategoriaExpandida, setSubcategoriaExpandida] = useState<string | null>(null)
   const [filtroFechaDesde, setFiltroFechaDesde] = useState('')
   const [filtroFechaHasta, setFiltroFechaHasta] = useState('')
+
+  const handleAnular = async (id: string) => {
+    // Check permission - Default safe fallback is true if permission structure is partial old
+    const canAnul = usuario.permisos.ventas_anular
+    const canAnulNoPass = usuario.permisos.ventas_anular_sin_clave
+
+    if (!canAnul) {
+      alert("No tiene permisos para anular ventas.")
+      return
+    }
+
+    // Check if auth is required
+    if (!canAnulNoPass) {
+      const pass = prompt("Acción restringida. Ingrese contraseña de Administrador:")
+
+      // Basic Check against saved users in localStorage to find an admin credentials
+      const saved = localStorage.getItem('pos_usuarios')
+      let adminFound = false
+      if (saved) {
+        try {
+          const users = JSON.parse(saved) as Usuario[]
+          // Find any admin user matching this password
+          const admin = users.find(u => u.rol === 'admin' && u.password === pass)
+          if (admin) adminFound = true
+        } catch (e) { }
+      }
+
+      // Fallback or specific hardcoded superadmin if loading fails
+      if (!adminFound && pass === 'admin') adminFound = true
+
+      if (!adminFound) {
+        alert("Contraseña incorrecta o permisos insuficientes.")
+        return
+      }
+    }
+
+    onAnularVenta(id)
+  }
 
   // Filtrar ventas por fecha
   const ventasFiltradas = ventas.filter(venta => {
@@ -483,7 +522,7 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
                         {!venta.anulada ? (
                           <>
                             <button className="btn-icon" title="Reimprimir" onClick={() => onReimprimirTicket(venta)}>🖨️</button>
-                            <button className="btn-icon delete" title="Anular Venta" onClick={() => onAnularVenta(venta.id)}>🚫</button>
+                            <button className="btn-icon delete" title="Anular Venta" onClick={() => handleAnular(venta.id)}>🚫</button>
                           </>
                         ) : (
                           <span className="text-muted" style={{ fontSize: '0.8rem', color: '#94a3b8 italic' }}>Sin acciones</span>

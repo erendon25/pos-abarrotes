@@ -3,8 +3,9 @@
   nombre: string
   usuario: string // Login username
   password?: string
-  rol: 'admin' | 'venta'
-  permisos?: {
+  rol: 'admin' | 'venta' | 'almacen'
+  permisos: {
+    // Módulos
     ventas: boolean
     reportes: boolean
     catalogo: boolean
@@ -12,6 +13,19 @@
     ingresos: boolean
     usuarios: boolean
     configuracion: boolean
+    inventario: boolean
+
+    // Acciones Específicas
+    ventas_anular: boolean // Puede anular ventas propias o de otros? General anular.
+    ventas_anular_sin_clave: boolean // Si falso, pide clave de admin
+
+    catalogo_crear: boolean
+    catalogo_editar: boolean
+    catalogo_eliminar: boolean
+    catalogo_editar_stock: boolean // Solo Almacén (y Admin?)
+    catalogo_editar_precio: boolean // Almacén y Admin
+
+    inventario_realizar: boolean // Puede hacer ajustes
   }
 }
 
@@ -122,4 +136,6 @@ export interface MovimientoInventario {
   // Para productos cerrados
   cantidadCajas?: number
   cantidadUnidades?: number
+  costoUnitario?: number // Costo del producto al momento del movimiento
+  precioUnitario?: number // Precio del producto al momento del movimiento
 }

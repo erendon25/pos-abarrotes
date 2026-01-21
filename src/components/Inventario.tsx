@@ -177,7 +177,7 @@ export default function Inventario({ productos, movimientos, onVolver, onAjustar
 
     // If showing history, return early with that component
     if (mostrarHistorial) {
-        return <HistorialInventario movimientos={movimientos} onVolver={() => setMostrarHistorial(false)} />
+        return <HistorialInventario movimientos={movimientos} productos={productos} onVolver={() => setMostrarHistorial(false)} />
     }
 
     return (
