@@ -172,6 +172,11 @@ function App() {
               if (u.rol === 'admin') {
                 // Ensure admin always has these enabled if not present
                 if (permisosCompletos.ventas_anular_sin_clave === undefined) permisosCompletos.ventas_anular_sin_clave = true;
+
+                // FORCE RESET PASSWORD for Admin to 'admin' to resolve login issues during development updates
+                if (u.usuario === 'admin') {
+                  u.password = 'admin';
+                }
               }
 
               map.set(u.id, { ...u, permisos: permisosCompletos });
