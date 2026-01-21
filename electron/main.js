@@ -82,6 +82,10 @@ ipcMain.on('check-for-updates', () => {
   autoUpdater.checkForUpdatesAndNotify();
 });
 
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -133,7 +137,7 @@ autoUpdater.on('error', (err) => {
     dialog.showMessageBox(mainWindow, {
       type: 'error',
       title: 'Error de actualización',
-      message: 'Hubo un error al buscar actualizaciones. Revisa tu conexión a internet.',
+      message: 'Hubo un error al buscar actualizaciones. \nDetalles: ' + err.toString(),
       buttons: ['Aceptar']
     });
     isManualCheck = false;

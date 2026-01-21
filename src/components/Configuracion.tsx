@@ -28,7 +28,16 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
   const [configInventario, setConfigInventario] = useState<Record<string, string[]>>({})
   const [inicializado, setInicializado] = useState(false)
 
+  // App Version State
+  const [appVersion, setAppVersion] = useState('')
+
   useEffect(() => {
+    // Check Electron Version
+    const ipcRenderer = (window as any).require ? (window as any).require('electron').ipcRenderer : null;
+    if (ipcRenderer) {
+      ipcRenderer.invoke('get-app-version').then((ver: string) => setAppVersion(ver)).catch((err: any) => console.error(err));
+    }
+
     // Cargar valores guardados
     const prefijoT = localStorage.getItem('pos_ticket_prefijo') || 'TICK'
     const numT = localStorage.getItem('pos_ticket_numero') || '1'
@@ -437,7 +446,8 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
         <div className="config-section">
           <h2>Actualizaciones del Sistema</h2>
           <div className="config-info">
-            Conecta con GitHub para buscar la última versión disponible del sistema.
+            <p><strong>Versión Actual:</strong> {appVersion || 'Web / Desconocida'}</p>
+            <p style={{ marginTop: '5px' }}>Conecta con GitHub para buscar la última versión disponible del sistema.</p>
           </div>
           <div className="config-actions" style={{ justifyContent: 'flex-start', marginTop: '15px' }}>
             <button
