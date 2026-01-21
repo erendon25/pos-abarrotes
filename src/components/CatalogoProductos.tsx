@@ -83,7 +83,10 @@ export default function CatalogoProductos({ productos, setProductos, categorias,
             stock: usuario.permisos.catalogo_editar_stock ? (parseInt(stock) || 0) : (productoEditar?.stock || 0),
             activo: true,
             sincronizado: true, // Asumimos sincronizado al guardar directo
-            preciosPorSubcategoria: Object.keys(preciosFinales).length > 0 ? preciosFinales : undefined
+            // Logic for subcategory prices: Only update if permission allowed. Else keep original.
+            preciosPorSubcategoria: usuario.permisos.catalogo_editar_precio
+                ? (Object.keys(preciosFinales).length > 0 ? preciosFinales : undefined)
+                : (productoEditar?.preciosPorSubcategoria)
         }
 
         // ... (Update Logic) ...
@@ -283,6 +286,7 @@ export default function CatalogoProductos({ productos, setProductos, categorias,
                                                     placeholder={`Base: ${precio}`}
                                                     value={preciosSubcat[sub] || ''}
                                                     onChange={e => setPreciosSubcat({ ...preciosSubcat, [sub]: e.target.value })}
+                                                    disabled={!allowEditPrice}
                                                 />
                                             </div>
                                         ))}

@@ -266,6 +266,18 @@ function App() {
     fetchProductos()
   }, [])
 
+  // Sync currentUser with users list to reflect permission changes immediately
+  useEffect(() => {
+    if (currentUser) {
+      const updatedUser = usuarios.find(u => u.id === currentUser.id);
+      if (updatedUser && JSON.stringify(updatedUser) !== JSON.stringify(currentUser)) {
+        console.log("Updating current user session with new permissions/data");
+        setCurrentUser(updatedUser);
+        localStorage.setItem('pos_currentUser', JSON.stringify(updatedUser));
+      }
+    }
+  }, [usuarios, currentUser]);
+
   const handleLogin = (usuario: Usuario) => {
     setCurrentUser(usuario)
     localStorage.setItem('pos_currentUser', JSON.stringify(usuario))
