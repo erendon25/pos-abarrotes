@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Producto, Categoria, Usuario } from '../types'
 import { doc, setDoc, deleteDoc } from 'firebase/firestore'
 import { db } from '../firebase'
