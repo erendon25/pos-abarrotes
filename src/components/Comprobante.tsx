@@ -62,13 +62,14 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
         <html>
         <head>
           <style>
-            @page { margin: 0; }
+            @page { margin: 0; size: auto; }
+            * { box-sizing: border-box; }
             body { 
               font-family: 'Courier New', Courier, monospace; 
-              width: 80mm; 
+              width: 100%;
               margin: 0; 
-              padding: 5px 10px; 
-              font-size: 11px;
+              padding: 4px; 
+              font-size: 12px; /* Increased slightly for legibility */
               color: #000;
             }
             .center { text-align: center; }

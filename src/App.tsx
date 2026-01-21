@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { Producto, ItemCarrito, Venta, Categoria, MetodoPago, Usuario, IngresoMercaderia, MovimientoInventario } from './types'
 import ProductosGrid from './components/ProductosGrid'
 import Carrito from './components/Carrito'
@@ -696,6 +696,42 @@ function App() {
     }
   }
 
+  // --- Focus Logic for Scanning ---
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (vista === 'venta') {
+      // 1. Focus on mount/view switch
+      searchInputRef.current?.focus()
+
+      // 2. Global listener for scanning/typing
+      const handleGlobalKeyDown = (e: KeyboardEvent) => {
+        // Ignore if modals are open
+        if (mostrarModalPago || productoSeleccionado || productoCerradoSeleccionado) return
+
+        // Ignore if focus is already on an interactive element
+        if (document.activeElement?.tagName === 'INPUT' ||
+          document.activeElement?.tagName === 'TEXTAREA' ||
+          document.activeElement?.tagName === 'SELECT') {
+          return
+        }
+
+        // Ignore control keys
+        if (e.ctrlKey || e.altKey || e.metaKey || e.key.length > 1) {
+          // Exception: If it's Enter, checking for scan buffer could be here,
+          // but relying on focus + standard input behavior is simpler.
+          return
+        }
+
+        // Focus input so the key is captured
+        searchInputRef.current?.focus()
+      }
+
+      window.addEventListener('keydown', handleGlobalKeyDown)
+      return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+    }
+  }, [vista, mostrarModalPago, productoSeleccionado, productoCerradoSeleccionado])
+
   return (
     <Layout
       vistaActual={vista}
@@ -704,59 +740,62 @@ function App() {
       cerrarSesion={handleLogout}
     >
       <div className="app-content-wrapper">
-        <div className="venta-layout-vertical" style={{ display: vista === 'venta' ? 'flex' : 'none' }}>
-          {/* 1. Bar of Search */}
-          <div className="search-section-main">
-            <div className="filtro-container-main" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
-              <div style={{ position: 'relative', width: '100%' }}>
-                <input
-                  type="text"
-                  className="filtro-input-main"
-                  placeholder="Buscar por nombre, código de barras..."
-                  value={filtro}
-                  onChange={(e) => setFiltro(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  autoFocus
-                />
-                {filtro && (
-                  <button
-                    className="btn-limpiar-filtro-main"
-                    onClick={() => setFiltro('')}
-                    title="Limpiar búsqueda"
-                  >
-                    ×
-                  </button>
-                )}
+        {vista === 'venta' && (
+          <div className="venta-layout-vertical">
+            {/* 1. Bar of Search */}
+            <div className="search-section-main">
+              <div className="filtro-container-main" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+                <div style={{ position: 'relative', width: '100%' }}>
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    className="filtro-input-main"
+                    placeholder="Buscar por nombre, código de barras..."
+                    value={filtro}
+                    onChange={(e) => setFiltro(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    autoFocus
+                  />
+                  {filtro && (
+                    <button
+                      className="btn-limpiar-filtro-main"
+                      onClick={() => setFiltro('')}
+                      title="Limpiar búsqueda"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                <LectorCodigoBarras onScan={handleScan} />
               </div>
-              <LectorCodigoBarras onScan={handleScan} />
+            </div>
+
+            {/* 2. Cart */}
+            <div className="cart-section-main">
+              <Carrito
+                items={carrito}
+                onEliminar={eliminarDelCarrito}
+                onProcesarVenta={procesarVenta}
+                onActualizarCantidad={actualizarCantidad}
+                categorias={categorias}
+                onCambiarSubcategoria={(() => { }) as any}
+                total={calcularTotal()}
+                obtenerPrecio={obtenerPrecio}
+              />
+            </div>
+
+            {/* 3. Products Grid */}
+            <div className="products-section-main">
+              <ProductosGrid
+                productos={productos}
+                categorias={categorias}
+                onAgregar={agregarAlCarrito}
+                filtro={filtro}
+                setFiltro={setFiltro}
+              />
             </div>
           </div>
-
-          {/* 2. Cart */}
-          <div className="cart-section-main">
-            <Carrito
-              items={carrito}
-              onEliminar={eliminarDelCarrito}
-              onProcesarVenta={procesarVenta}
-              onActualizarCantidad={actualizarCantidad}
-              categorias={categorias}
-              onCambiarSubcategoria={(() => { }) as any}
-              total={calcularTotal()}
-              obtenerPrecio={obtenerPrecio}
-            />
-          </div>
-
-          {/* 3. Products Grid */}
-          <div className="products-section-main">
-            <ProductosGrid
-              productos={productos}
-              categorias={categorias}
-              onAgregar={agregarAlCarrito}
-              filtro={filtro}
-              setFiltro={setFiltro}
-            />
-          </div>
-        </div>
+        )}
 
         {vista === 'reportes' && (
           <Reportes

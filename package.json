@@ -1,7 +1,7 @@
 {
   "name": "pos-abarrotes",
-  "version": "1.0.7",
-  "author": "Jennifer",
+  "version": "1.0.8",
+  "author": "Erick Rendon",
   "description": "Punto de venta moderno para tienda de abarrotes",
   "main": "electron/main.js",
   "scripts": {
