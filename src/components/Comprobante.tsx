@@ -66,57 +66,58 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
             * { box-sizing: border-box; }
             body { 
               font-family: 'Courier New', Courier, monospace; 
-              width: 100%;
-              margin: 0; 
-              padding: 4px; 
-              font-size: 12px; /* Increased slightly for legibility */
+              width: 72mm; /* Safe printable width for 80mm paper */
+              margin: 0 auto; 
+              padding: 2mm; 
+              font-size: 11px;
               color: #000;
+              overflow: hidden;
             }
             .center { text-align: center; }
             .bold { font-weight: bold; }
             .uppercase { text-transform: uppercase; }
             
             /* Header */
-            .header-title { font-size: 14px; margin-bottom: 5px; }
+            .header-title { font-size: 14px; margin-bottom: 5px; word-break: break-word; }
             .header-info { font-size: 10px; margin-bottom: 2px; }
             
             /* Separators */
-            .divider { border-top: 1px solid #ddd; margin: 8px 0; }
-            .divider-dashed { border-top: 1px dashed #000; margin: 8px 0; }
+            .divider { border-top: 1px solid #ddd; margin: 5px 0; }
+            .divider-dashed { border-top: 1px dashed #000; margin: 5px 0; }
             
             /* Flex Rows for Info */
-            .row-flex { display: flex; justify-content: space-between; margin-bottom: 3px; }
+            .row-flex { display: flex; justify-content: space-between; margin-bottom: 2px; }
             
             /* Table */
-            .table-container { margin-top: 10px; width: 100%; }
+            .table-container { margin-top: 5px; width: 100%; }
             .table-header { 
-              background-color: #000080; /* Navy Blue */
+              background-color: #000; /* Black for better contrast */
               color: white; 
               font-weight: bold;
-              padding: 4px 2px;
+              padding: 2px 0;
               display: flex;
-              font-size: 10px;
+              font-size: 9px;
             }
-            .col-prod { width: 45%; text-align: left; }
+            .col-prod { width: 40%; text-align: left; padding-left: 2px; }
             .col-cant { width: 15%; text-align: center; }
             .col-precio { width: 20%; text-align: right; }
-            .col-total { width: 20%; text-align: right; }
+            .col-total { width: 25%; text-align: right; padding-right: 2px; }
             
             .table-row {
               display: flex;
-              border-bottom: 1px solid #eee;
-              padding: 5px 0;
-              align-items: flex-start; /* Align top for multiline */
+              border-bottom: 1px dotted #000;
+              padding: 4px 0;
+              align-items: flex-start;
             }
             
-            .prod-name { font-size: 10px; }
+            .prod-name { font-size: 10px; word-break: break-word; text-align: left; }
             
             /* Totals */
-            .total-section { margin-top: 10px; }
-            .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; margin-bottom: 5px; }
-            .payment-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
+            .total-section { margin-top: 5px; }
+            .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin-bottom: 2px; }
+            .payment-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px; }
             
-            .footer { margin-top: 15px; font-size: 12px; }
+            .footer { margin-top: 10px; font-size: 10px; padding-bottom: 5px;}
           </style>
         </head>
         <body>
