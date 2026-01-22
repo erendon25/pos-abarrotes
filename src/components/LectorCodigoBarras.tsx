@@ -3,13 +3,21 @@ import { Html5Qrcode } from 'html5-qrcode'
 
 interface LectorCodigoBarrasProps {
     onScan: (codigo: string) => void
+    activo?: boolean
 }
 
-export default function LectorCodigoBarras({ onScan }: LectorCodigoBarrasProps) {
+export default function LectorCodigoBarras({ onScan, activo = true }: LectorCodigoBarrasProps) {
     const [escaneando, setEscaneando] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const html5QrcodeRef = useRef<Html5Qrcode | null>(null)
     const containerId = "reader-container"
+
+    // Stop scanning if activo becomes false (view hidden)
+    useEffect(() => {
+        if (!activo && escaneando) {
+            detenerEscaner()
+        }
+    }, [activo, escaneando])
 
     // Cleanup on unmount
     useEffect(() => {

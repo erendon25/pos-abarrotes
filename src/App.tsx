@@ -702,12 +702,12 @@ function App() {
   useEffect(() => {
     if (vista === 'venta') {
       // 1. Focus on mount/view switch
-      searchInputRef.current?.focus()
+      const timer = setTimeout(() => searchInputRef.current?.focus(), 50)
 
       // 2. Global listener for scanning/typing
       const handleGlobalKeyDown = (e: KeyboardEvent) => {
-        // Ignore if modals are open
-        if (mostrarModalPago || productoSeleccionado || productoCerradoSeleccionado) return
+        // Ignore if modals are open (including receipt)
+        if (mostrarModalPago || productoSeleccionado || productoCerradoSeleccionado || ventaComprobante) return
 
         // Ignore if focus is already on an interactive element
         if (document.activeElement?.tagName === 'INPUT' ||
@@ -728,9 +728,13 @@ function App() {
       }
 
       window.addEventListener('keydown', handleGlobalKeyDown)
-      return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+
+      return () => {
+        window.removeEventListener('keydown', handleGlobalKeyDown)
+        clearTimeout(timer)
+      }
     }
-  }, [vista, mostrarModalPago, productoSeleccionado, productoCerradoSeleccionado])
+  }, [vista, mostrarModalPago, productoSeleccionado, productoCerradoSeleccionado, ventaComprobante])
 
   return (
     <Layout
@@ -740,69 +744,80 @@ function App() {
       cerrarSesion={handleLogout}
     >
       <div className="app-content-wrapper">
-        {vista === 'venta' && (
-          <div className="venta-layout-vertical">
-            {/* 1. Bar of Search */}
-            <div className="search-section-main">
-              <div className="filtro-container-main" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
-                <div style={{ position: 'relative', width: '100%' }}>
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    className="filtro-input-main"
-                    placeholder="Buscar por nombre, código de barras..."
-                    value={filtro}
-                    onChange={(e) => setFiltro(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    autoFocus
-                  />
-                  {filtro && (
-                    <button
-                      className="btn-limpiar-filtro-main"
-                      onClick={() => setFiltro('')}
-                      title="Limpiar búsqueda"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-                <LectorCodigoBarras onScan={handleScan} />
+        <div
+          className="venta-layout-vertical"
+          style={{ display: vista === 'venta' ? 'flex' : 'none', flexDirection: 'column', height: '100%' }}
+          onClick={() => {
+            // Refocus if user clicks blank space
+            if (document.activeElement !== searchInputRef.current) {
+              searchInputRef.current?.focus()
+            }
+          }}
+        >
+          {/* 1. Bar of Search */}
+          <div className="search-section-main">
+            <div className="filtro-container-main" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+              <div style={{ position: 'relative', width: '100%' }}>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  className="filtro-input-main"
+                  placeholder="Buscar por nombre, código de barras..."
+                  value={filtro}
+                  onChange={(e) => setFiltro(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={() => {
+                    // Optional: could force focus back, but let's allow blur for now if user wants to click buttons
+                  }}
+                  autoFocus
+                />
+                {filtro && (
+                  <button
+                    className="btn-limpiar-filtro-main"
+                    onClick={() => setFiltro('')}
+                    title="Limpiar búsqueda"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
-            </div>
-
-            {/* 2. Cart */}
-            <div className="cart-section-main">
-              <Carrito
-                items={carrito}
-                onEliminar={eliminarDelCarrito}
-                onProcesarVenta={procesarVenta}
-                onActualizarCantidad={actualizarCantidad}
-                categorias={categorias}
-                onCambiarSubcategoria={(() => { }) as any}
-                total={calcularTotal()}
-                obtenerPrecio={obtenerPrecio}
-              />
-            </div>
-
-            {/* 3. Products Grid */}
-            <div className="products-section-main">
-              <ProductosGrid
-                productos={productos}
-                categorias={categorias}
-                onAgregar={agregarAlCarrito}
-                filtro={filtro}
-                setFiltro={setFiltro}
-              />
+              <LectorCodigoBarras onScan={handleScan} activo={vista === 'venta'} />
             </div>
           </div>
-        )}
 
-        {vista === 'reportes' && (
+          {/* 2. Cart */}
+          <div className="cart-section-main">
+            <Carrito
+              items={carrito}
+              onEliminar={eliminarDelCarrito}
+              onProcesarVenta={procesarVenta}
+              onActualizarCantidad={actualizarCantidad}
+              categorias={categorias}
+              onCambiarSubcategoria={(() => { }) as any}
+              total={calcularTotal()}
+              obtenerPrecio={obtenerPrecio}
+            />
+          </div>
+
+          {/* 3. Products Grid */}
+          <div className="products-section-main">
+            <ProductosGrid
+              productos={productos}
+              categorias={categorias}
+              onAgregar={agregarAlCarrito}
+              filtro={filtro}
+              setFiltro={setFiltro}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: vista === 'reportes' ? 'block' : 'none', height: '100%' }}>
           <Reportes
             ventas={ventas}
-            usuario={currentUser} // Pass permissions
+            usuario={currentUser}
             onVolver={() => setVista('venta')}
             onAnularVenta={async (id) => {
+              // ... keep existing logic
               if (!confirm('¿Estás seguro de anular esta venta? El stock será devuelto.')) return
 
               // 1. Mark sale as anulada
@@ -816,40 +831,36 @@ function App() {
                   const itemVendido = venta.items.find(i => i.producto.id === prod.id)
                   if (itemVendido) {
                     if (prod.esCerrado && itemVendido.vendidoEnUnidades) {
-                      // Restore logic complex, simple approach: add to units
                       return { ...prod, stockUnidad: (prod.stockUnidad || 0) + itemVendido.cantidad, stock: prod.stock + itemVendido.cantidad, sincronizado: false }
                     }
-                    // Simple restore
                     return { ...prod, stock: prod.stock + itemVendido.cantidad, sincronizado: false }
                   }
                   return prod
                 }))
               }
-
-              // 3. Sync Firebase (Best effort placeholder)
               console.log("Venta anulada localmente: ", id)
             }}
             onReimprimirTicket={(venta) => setVentaComprobante(venta)}
           />
-        )}
+        </div>
 
-        {vista === 'catalogo' && (
+        <div style={{ display: vista === 'catalogo' ? 'block' : 'none', height: '100%' }}>
           <CatalogoProductos
             productos={productos}
             setProductos={setProductos}
             categorias={categorias}
-            usuario={currentUser} // Pass permissions
+            usuario={currentUser}
           />
-        )}
+        </div>
 
-        {vista === 'categorias' && (
+        <div style={{ display: vista === 'categorias' ? 'block' : 'none', height: '100%' }}>
           <GestionCategorias
             categorias={categorias}
             setCategorias={setCategorias}
           />
-        )}
+        </div>
 
-        {vista === 'inventario' && (
+        <div style={{ display: vista === 'inventario' ? 'block' : 'none', height: '100%' }}>
           <Inventario
             productos={productos}
             movimientos={movimientos}
@@ -858,30 +869,30 @@ function App() {
               ajustarStock(p, nuevoStock, nc, nu, motivo, diff)
             }}
           />
-        )}
+        </div>
 
-        {vista === 'ingresoMercaderia' && (
+        <div style={{ display: vista === 'ingresoMercaderia' ? 'block' : 'none', height: '100%' }}>
           <IngresoMercaderiaComponent
             productos={productos}
             onVolver={() => setVista('venta')}
             onRegistrarIngreso={registrarIngreso}
             usuarios={usuarios}
           />
-        )}
+        </div>
 
-        {vista === 'usuarios' && (
+        <div style={{ display: vista === 'usuarios' ? 'block' : 'none', height: '100%' }}>
           <Usuarios
             usuarios={usuarios}
             setUsuarios={setUsuarios}
           />
-        )}
+        </div>
 
-        {vista === 'configuracion' && (
+        <div style={{ display: vista === 'configuracion' ? 'block' : 'none', height: '100%' }}>
           <Configuracion
             onConfigSaved={() => { }}
             categorias={categorias}
           />
-        )}
+        </div>
       </div>
 
       {productoSeleccionado && (
