@@ -226,7 +226,7 @@
   .resumen-pago {
     grid-template-columns: 1fr;
   }
-  
+
   .resumen-item.vuelto {
     grid-column: 1;
   }
@@ -278,11 +278,6 @@
   background: #f9fafb;
   border-color: #9ca3af;
   color: #111827;
-  box-shadow: 0 0 15px rgba(37, 99, 235, 0.3),
-              0 0 30px rgba(37, 99, 235, 0.15),
-              0 0 45px rgba(37, 99, 235, 0.08);
-  transform: translateY(-1px);
-  transition: all 0.3s ease;
 }
 
 .btn-confirmar-pago {
@@ -302,11 +297,6 @@
   background: #f9fafb;
   border-color: #9ca3af;
   color: #111827;
-  box-shadow: 0 0 15px rgba(37, 99, 235, 0.3),
-              0 0 30px rgba(37, 99, 235, 0.15),
-              0 0 45px rgba(37, 99, 235, 0.08);
-  transform: translateY(-1px);
-  transition: all 0.3s ease;
 }
 
 .btn-confirmar-pago.disabled {
@@ -352,6 +342,7 @@
 }
 
 @media (max-width: 768px) {
+
   .factura-campos,
   .tarjeta-porcentaje-campos {
     grid-template-columns: 1fr;
@@ -410,4 +401,3 @@
   font-style: italic;
   margin-top: 0.25rem;
 }
-

@@ -45,9 +45,10 @@ export default function LectorCodigoBarras({ onScan, activo = true }: LectorCodi
                     html5QrcodeRef.current = scanner;
 
                     const config = {
-                        fps: 10,
-                        qrbox: { width: 250, height: 150 },
-                        aspectRatio: 1.0
+                        fps: 5, // Reduced from 10 for better performance
+                        qrbox: { width: 200, height: 120 }, // Smaller scan area
+                        aspectRatio: 1.0,
+                        disableFlip: true // Disable image flipping for performance
                     };
 
                     const onScanSuccess = (decodedText: string) => {

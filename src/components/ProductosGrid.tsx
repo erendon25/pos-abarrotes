@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useState, useMemo, useCallback, memo } from 'react'
 import { Producto, Categoria } from '../types'
 import './ProductosGrid.css'
 
@@ -7,71 +7,131 @@ interface ProductosGridProps {
   categorias: Categoria[]
   onAgregar: (producto: Producto) => void
   filtro: string
-  setFiltro?: (filtro: string) => void // Opcional o removido si no se usa internamente
+  setFiltro?: (filtro: string) => void
 }
 
-export default function ProductosGrid({ productos, onAgregar, filtro }: ProductosGridProps) {
-  const [limiteVisible, setLimiteVisible] = useState(50)
+// Producto individual memoizado para evitar re-renders
+const ProductoItem = memo(function ProductoItem({
+  producto,
+  onAgregar
+}: {
+  producto: Producto
+  onAgregar: (producto: Producto) => void
+}) {
+  const sinStock = producto.stock === 0
 
-  // Resetear límite cuando cambia el filtro
-  if (filtro !== '' && limiteVisible !== 50) {
-    // Nota: Esto es un efecto secundario en render, pero React lo maneja si es un setState condicional simple
-  }
-
-  // Efecto para resetear cuando cambia el filtro (mejor práctica)
-  const [filtroAnterior, setFiltroAnterior] = useState('')
-  if (filtro !== filtroAnterior) {
-    setFiltroAnterior(filtro)
-    setLimiteVisible(50)
-  }
-
-  const obtenerRangoPrecios = (producto: Producto) => {
+  // Calcular rango de precios solo si es necesario
+  const rangoPrecios = useMemo(() => {
     if (!producto.preciosPorSubcategoria || Object.keys(producto.preciosPorSubcategoria).length === 0) {
       return null
     }
-
     const precios = Object.values(producto.preciosPorSubcategoria)
     const minPrecio = Math.min(...precios, producto.precio)
     const maxPrecio = Math.max(...precios, producto.precio)
-
-    if (minPrecio === maxPrecio) {
-      return null
-    }
-
+    if (minPrecio === maxPrecio) return null
     return { min: minPrecio, max: maxPrecio }
+  }, [producto.precio, producto.preciosPorSubcategoria])
+
+  const handleClick = useCallback(() => {
+    if (!sinStock) onAgregar(producto)
+  }, [sinStock, onAgregar, producto])
+
+  return (
+    <div
+      className={`producto-item-lista ${sinStock ? 'sin-stock' : ''}`}
+      onClick={handleClick}
+      style={{ cursor: sinStock ? 'not-allowed' : 'pointer' }}
+    >
+      <div className="producto-info-lista">
+        <div className="producto-nombre-lista">
+          <h3>{producto.nombre}</h3>
+          {producto.marca && (
+            <span className="marca-badge-lista">{producto.marca}</span>
+          )}
+          {producto.presentacion && (
+            <span className="presentacion-badge-lista">{producto.presentacion}</span>
+          )}
+          {producto.subcategoria && (
+            <span className="subcategoria-badge-lista">{producto.subcategoria}</span>
+          )}
+        </div>
+        <p className="producto-categoria-lista">{producto.categoria}</p>
+      </div>
+
+      <div className="producto-precio-lista">
+        {rangoPrecios ? (
+          <span className="precio-rango">
+            S/ {rangoPrecios.min.toFixed(2)} - S/ {rangoPrecios.max.toFixed(2)}
+          </span>
+        ) : (
+          <span className="precio-unico">S/ {producto.precio.toFixed(2)}</span>
+        )}
+      </div>
+
+      <div className="producto-stock-lista">
+        {sinStock ? (
+          <span className="stock-agotado-lista">Sin stock</span>
+        ) : producto.stock < 10 ? (
+          <span className="stock-bajo-lista">Stock: {producto.stock}</span>
+        ) : (
+          <span className="stock-ok">Stock: {producto.stock}</span>
+        )}
+      </div>
+    </div>
+  )
+})
+
+function ProductosGrid({ productos, onAgregar, filtro }: ProductosGridProps) {
+  const [limiteVisible, setLimiteVisible] = useState(30) // Reducido para mejor rendimiento inicial
+  const [filtroAnterior, setFiltroAnterior] = useState('')
+
+  // Resetear límite cuando cambia el filtro
+  if (filtro !== filtroAnterior) {
+    setFiltroAnterior(filtro)
+    setLimiteVisible(30)
   }
 
-  const productosFiltrados = productos.filter(producto => {
-    if (!filtro.trim()) return true
-    const busqueda = filtro.toLowerCase()
-    return (
-      producto.nombre.toLowerCase().includes(busqueda) ||
-      (producto.marca && producto.marca.toLowerCase().includes(busqueda)) ||
-      (producto.presentacion && producto.presentacion.toLowerCase().includes(busqueda)) ||
-      producto.categoria.toLowerCase().includes(busqueda) ||
-      (producto.subcategoria && producto.subcategoria.toLowerCase().includes(busqueda)) ||
-      (producto.codigoBarras && producto.codigoBarras.toLowerCase().includes(busqueda)) ||
-      (producto.codigoBarras && producto.codigoBarras === filtro.trim()) // Búsqueda exacta por código de barras
-    )
-  })
+  // Filtrar productos con useMemo para evitar recálculos
+  const productosFiltrados = useMemo(() => {
+    if (!filtro.trim()) return productos.filter(p => p.activo !== false)
 
-  // Manejador de scroll infinito
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const busqueda = filtro.toLowerCase().trim()
+    return productos.filter(producto => {
+      if (producto.activo === false) return false
+
+      // Búsqueda exacta por código de barras primero (más rápida)
+      if (producto.codigoBarras && producto.codigoBarras === filtro.trim()) {
+        return true
+      }
+
+      return (
+        producto.nombre.toLowerCase().includes(busqueda) ||
+        (producto.marca && producto.marca.toLowerCase().includes(busqueda)) ||
+        (producto.presentacion && producto.presentacion.toLowerCase().includes(busqueda)) ||
+        producto.categoria.toLowerCase().includes(busqueda) ||
+        (producto.subcategoria && producto.subcategoria.toLowerCase().includes(busqueda)) ||
+        (producto.codigoBarras && producto.codigoBarras.toLowerCase().includes(busqueda))
+      )
+    })
+  }, [productos, filtro])
+
+  // Productos visibles limitados
+  const productosVisibles = useMemo(() => {
+    return productosFiltrados.slice(0, limiteVisible)
+  }, [productosFiltrados, limiteVisible])
+
+  // Manejador de scroll con throttling simple
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, clientHeight, scrollHeight } = e.currentTarget
-    // Si estamos cerca del final (100px)
-    if (scrollHeight - scrollTop - clientHeight < 100) {
+    if (scrollHeight - scrollTop - clientHeight < 150) {
       if (limiteVisible < productosFiltrados.length) {
-        setLimiteVisible(prev => prev + 50)
+        setLimiteVisible(prev => Math.min(prev + 30, productosFiltrados.length))
       }
     }
-  }
-
-  const productosVisibles = productosFiltrados.slice(0, limiteVisible)
+  }, [limiteVisible, productosFiltrados.length])
 
   return (
     <div className="productos-container">
-      {/* Filtro removido - ahora manejado por App.tsx */}
-
       <div className="productos-lista" onScroll={handleScroll}>
         {productosVisibles.length === 0 ? (
           <div className="sin-resultados">
@@ -80,58 +140,16 @@ export default function ProductosGrid({ productos, onAgregar, filtro }: Producto
           </div>
         ) : (
           <>
-            {productosVisibles.map(producto => {
-              const sinStock = producto.stock === 0
-              const rangoPrecios = obtenerRangoPrecios(producto)
-
-              return (
-                <div
-                  key={producto.id}
-                  className={`producto-item-lista ${sinStock ? 'sin-stock' : ''}`}
-                  onClick={() => !sinStock && onAgregar(producto)}
-                  style={{ cursor: sinStock ? 'not-allowed' : 'pointer' }}
-                >
-                  <div className="producto-info-lista">
-                    <div className="producto-nombre-lista">
-                      <h3>{producto.nombre}</h3>
-                      {producto.marca && (
-                        <span className="marca-badge-lista">{producto.marca}</span>
-                      )}
-                      {producto.presentacion && (
-                        <span className="presentacion-badge-lista">{producto.presentacion}</span>
-                      )}
-                      {producto.subcategoria && (
-                        <span className="subcategoria-badge-lista">{producto.subcategoria}</span>
-                      )}
-                    </div>
-                    <p className="producto-categoria-lista">{producto.categoria}</p>
-                  </div>
-
-                  <div className="producto-precio-lista">
-                    {rangoPrecios ? (
-                      <span className="precio-rango">
-                        S/ {rangoPrecios.min.toFixed(2)} - S/ {rangoPrecios.max.toFixed(2)}
-                      </span>
-                    ) : (
-                      <span className="precio-unico">S/ {producto.precio.toFixed(2)}</span>
-                    )}
-                  </div>
-
-                  <div className="producto-stock-lista">
-                    {sinStock ? (
-                      <span className="stock-agotado-lista">Sin stock</span>
-                    ) : producto.stock < 10 ? (
-                      <span className="stock-bajo-lista">Stock: {producto.stock}</span>
-                    ) : (
-                      <span className="stock-ok">Stock: {producto.stock}</span>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+            {productosVisibles.map(producto => (
+              <ProductoItem
+                key={producto.id}
+                producto={producto}
+                onAgregar={onAgregar}
+              />
+            ))}
             {limiteVisible < productosFiltrados.length && (
-              <div style={{ textAlign: 'center', padding: '1rem', color: '#888' }}>
-                Cargando más productos...
+              <div style={{ textAlign: 'center', padding: '0.5rem', color: '#888', fontSize: '0.9rem' }}>
+                Desplaza para ver más ({productosFiltrados.length - limiteVisible} restantes)
               </div>
             )}
           </>
@@ -140,3 +158,5 @@ export default function ProductosGrid({ productos, onAgregar, filtro }: Producto
     </div>
   )
 }
+
+export default memo(ProductosGrid)

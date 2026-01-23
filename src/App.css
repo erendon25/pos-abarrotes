@@ -240,6 +240,35 @@
     padding: 1rem;
     gap: 1rem;
   }
+
+  .app-content-wrapper {
+    padding: 0.5rem;
+  }
+
+  .search-section-main {
+    padding: 0.75rem;
+    border-radius: 8px;
+  }
+
+  .filtro-input-main {
+    font-size: 1rem;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .cart-section-main {
+    max-height: 50vh;
+  }
+
+  .products-section-main {
+    padding: 0.75rem;
+    border-radius: 8px;
+  }
+
+  .venta-layout-vertical {
+    gap: 1rem;
+    height: calc(100vh - 60px);
+    padding-bottom: 1rem;
+  }
 }
 
 /* Sidebar Styles */

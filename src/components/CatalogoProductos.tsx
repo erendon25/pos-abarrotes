@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Producto, Categoria, Usuario } from '../types'
-import { doc, setDoc, deleteDoc } from 'firebase/firestore'
+import { doc, deleteDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import './CatalogoProductos.css'
 

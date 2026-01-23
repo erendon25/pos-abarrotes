@@ -90,3 +90,45 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Performance optimizations for low-spec PCs */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Disable heavy animations on low-end devices */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Optimize paint and layout */
+.productos-lista,
+.carrito-items,
+.tabla-clientes tbody,
+.historial-lista {
+  contain: layout style;
+}
+
+/* GPU compositing hint for scrollable areas */
+.productos-lista {
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Reduce repaints on inputs */
+input,
+select,
+textarea {
+  will-change: auto;
+}

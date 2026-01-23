@@ -20,6 +20,7 @@ import { obtenerSiguienteTicket, obtenerSiguienteBoleta } from './utils/numeraci
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from './firebase'
 import LectorCodigoBarras from './components/LectorCodigoBarras'
+import { useDebounce } from './utils/hooks'
 import './App.css'
 
 
@@ -113,6 +114,8 @@ function App() {
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null)
   const [productoCerradoSeleccionado, setProductoCerradoSeleccionado] = useState<Producto | null>(null)
   const [filtro, setFiltro] = useState('')
+  // Debounce del filtro para mejor rendimiento en búsquedas (espera 200ms después de escribir)
+  const filtroDebounciado = useDebounce(filtro, 200)
   const [mostrarModalPago, setMostrarModalPago] = useState(false)
   const [ventaComprobante, setVentaComprobante] = useState<Venta | null>(null)
 
@@ -872,7 +875,7 @@ function App() {
               productos={productos}
               categorias={categorias}
               onAgregar={agregarAlCarrito}
-              filtro={filtro}
+              filtro={filtroDebounciado}
               setFiltro={setFiltro}
             />
           </div>
@@ -885,26 +888,40 @@ function App() {
             onVolver={() => setVista('venta')}
             onAnularVenta={async (id) => {
               // ... keep existing logic
-              if (!confirm('¿Estás seguro de anular esta venta? El stock será devuelto.')) return
+              if (!confirm('¿Estás seguro de anular esta venta? El stock será devuelto y el crédito será revertido si aplica.')) return
+
+              const venta = ventas.find(v => v.id === id)
+              if (!venta) return
 
               // 1. Mark sale as anulada
               const updatedVentas = ventas.map(v => v.id === id ? { ...v, anulada: true } : v)
               setVentas(updatedVentas)
 
               // 2. Restore Stock
-              const venta = ventas.find(v => v.id === id)
-              if (venta) {
-                setProductos(prev => prev.map(prod => {
-                  const itemVendido = venta.items.find(i => i.producto.id === prod.id)
-                  if (itemVendido) {
-                    if (prod.esCerrado && itemVendido.vendidoEnUnidades) {
-                      return { ...prod, stockUnidad: (prod.stockUnidad || 0) + itemVendido.cantidad, stock: prod.stock + itemVendido.cantidad, sincronizado: false }
-                    }
-                    return { ...prod, stock: prod.stock + itemVendido.cantidad, sincronizado: false }
+              setProductos(prev => prev.map(prod => {
+                const itemVendido = venta.items.find(i => i.producto.id === prod.id)
+                if (itemVendido) {
+                  if (prod.esCerrado && itemVendido.vendidoEnUnidades) {
+                    return { ...prod, stockUnidad: (prod.stockUnidad || 0) + itemVendido.cantidad, stock: prod.stock + itemVendido.cantidad, sincronizado: false }
                   }
-                  return prod
+                  return { ...prod, stock: prod.stock + itemVendido.cantidad, sincronizado: false }
+                }
+                return prod
+              }))
+
+              // 3. Revert Credit if applicable
+              const creditoMetodo = venta.metodosPago.find(m => m.tipo === 'credito')
+              if (creditoMetodo && venta.clienteId) {
+                setClientes(prev => prev.map(c => {
+                  if (c.id === venta.clienteId) {
+                    const nuevaDeuda = Math.max(0, c.deudaActual - creditoMetodo.monto)
+                    return { ...c, deudaActual: nuevaDeuda }
+                  }
+                  return c
                 }))
+                console.log(`Crédito revertido para cliente ${venta.clienteId}: S/ ${creditoMetodo.monto}`)
               }
+
               console.log("Venta anulada localmente: ", id)
             }}
             onReimprimirTicket={(venta) => setVentaComprobante(venta)}
@@ -953,7 +970,7 @@ function App() {
             clientes={clientes}
             setClientes={setClientes}
             onRegistrarPago={registrarPagoDeuda}
-            usuario={currentUser}
+            ventas={ventas}
           />
         </div>
 

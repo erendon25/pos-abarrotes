@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useState, memo, useCallback } from 'react'
 import { ItemCarrito, Categoria } from '../types'
 import SelectorSubcategoria from './SelectorSubcategoria'
 import './Carrito.css'
@@ -14,11 +14,97 @@ interface CarritoProps {
   obtenerPrecio: (item: ItemCarrito) => number
 }
 
-export default function Carrito({ 
-  items, 
+// Item individual memoizado
+const CarritoItem = memo(function CarritoItem({
+  item,
+  obtenerPrecio,
+  onActualizarCantidad,
+  onEliminar,
+  onEditarVariante
+}: {
+  item: ItemCarrito
+  obtenerPrecio: (item: ItemCarrito) => number
+  onActualizarCantidad: (id: string, cantidad: number, subcategoria?: string, vendidoEnUnidades?: boolean) => void
+  onEliminar: (id: string, subcategoria?: string, vendidoEnUnidades?: boolean) => void
+  onEditarVariante: (item: ItemCarrito) => void
+}) {
+  const precio = obtenerPrecio(item)
+  const esProductoCerrado = item.producto.esCerrado
+  const tipoVenta = esProductoCerrado ? (item.vendidoEnUnidades ? 'unidades' : 'cajas') : null
+
+  const handleRestar = useCallback(() => {
+    onActualizarCantidad(item.producto.id, item.cantidad - 1, item.subcategoriaSeleccionada, item.vendidoEnUnidades)
+  }, [item.producto.id, item.cantidad, item.subcategoriaSeleccionada, item.vendidoEnUnidades, onActualizarCantidad])
+
+  const handleSumar = useCallback(() => {
+    onActualizarCantidad(item.producto.id, item.cantidad + 1, item.subcategoriaSeleccionada, item.vendidoEnUnidades)
+  }, [item.producto.id, item.cantidad, item.subcategoriaSeleccionada, item.vendidoEnUnidades, onActualizarCantidad])
+
+  const handleEliminar = useCallback(() => {
+    onEliminar(item.producto.id, item.subcategoriaSeleccionada, item.vendidoEnUnidades)
+  }, [item.producto.id, item.subcategoriaSeleccionada, item.vendidoEnUnidades, onEliminar])
+
+  const handleEditarVariante = useCallback(() => {
+    onEditarVariante(item)
+  }, [item, onEditarVariante])
+
+  const tieneVariantes = item.producto.preciosPorSubcategoria && Object.keys(item.producto.preciosPorSubcategoria).length > 0
+
+  return (
+    <div className="carrito-item">
+      <div className="item-info">
+        <h4>{item.producto.nombre}</h4>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+          {item.producto.marca && (
+            <span className="marca-badge-carrito">{item.producto.marca}</span>
+          )}
+          {item.producto.presentacion && (
+            <span className="presentacion-badge-carrito">{item.producto.presentacion}</span>
+          )}
+          {item.subcategoriaSeleccionada && (
+            <span className="subcategoria-badge-carrito">{item.subcategoriaSeleccionada}</span>
+          )}
+          {tipoVenta && (
+            <span className="tipo-venta-badge">
+              {tipoVenta === 'unidades' ? '📄 Por unidad' : '📦 Por caja'}
+            </span>
+          )}
+        </div>
+        <p className="item-precio-unitario">
+          S/ {precio.toFixed(2)} {tipoVenta === 'unidades' ? 'c/unidad' : tipoVenta === 'cajas' ? 'c/caja' : 'c/u'}
+        </p>
+      </div>
+
+      <div className="item-controls">
+        <button className="btn-cantidad" onClick={handleRestar}>−</button>
+        <span className="cantidad">
+          {item.cantidad} {tipoVenta === 'unidades' ? 'unid.' : tipoVenta === 'cajas' ? 'cajas' : ''}
+        </span>
+        <button className="btn-cantidad" onClick={handleSumar}>+</button>
+        {tieneVariantes && (
+          <button
+            className="btn-cambiar-variante"
+            onClick={handleEditarVariante}
+            title="Cambiar variante"
+          >
+            🔄
+          </button>
+        )}
+        <button className="btn-eliminar" onClick={handleEliminar}>×</button>
+      </div>
+
+      <div className="item-subtotal">
+        S/ {(precio * item.cantidad).toFixed(2)}
+      </div>
+    </div>
+  )
+})
+
+function Carrito({
+  items,
   categorias,
-  onActualizarCantidad, 
-  onEliminar, 
+  onActualizarCantidad,
+  onEliminar,
   onCambiarSubcategoria,
   onProcesarVenta,
   total,
@@ -26,12 +112,20 @@ export default function Carrito({
 }: CarritoProps) {
   const [itemEditando, setItemEditando] = useState<ItemCarrito | null>(null)
 
-  const handleCambiarSubcategoria = (subcategoria: string | null) => {
+  const handleCambiarSubcategoria = useCallback((subcategoria: string | null) => {
     if (itemEditando) {
       onCambiarSubcategoria(itemEditando, subcategoria)
       setItemEditando(null)
     }
-  }
+  }, [itemEditando, onCambiarSubcategoria])
+
+  const handleCancelarEdicion = useCallback(() => {
+    setItemEditando(null)
+  }, [])
+
+  const handleEditarVariante = useCallback((item: ItemCarrito) => {
+    setItemEditando(item)
+  }, [])
 
   return (
     <div className="carrito">
@@ -40,12 +134,12 @@ export default function Carrito({
           producto={itemEditando.producto}
           categorias={categorias}
           onSeleccionar={handleCambiarSubcategoria}
-          onCancelar={() => setItemEditando(null)}
+          onCancelar={handleCancelarEdicion}
         />
       )}
-      
+
       <h2>Carrito de Compras</h2>
-      
+
       {items.length === 0 ? (
         <div className="carrito-vacio">
           <p>El carrito está vacío</p>
@@ -54,85 +148,25 @@ export default function Carrito({
       ) : (
         <>
           <div className="carrito-items">
-            {items.map((item, index) => {
-              const precio = obtenerPrecio(item)
-              const itemKey = `${item.producto.id}-${item.subcategoriaSeleccionada || 'base'}-${item.vendidoEnUnidades ? 'unidades' : 'caja'}-${index}`
-              const esProductoCerrado = item.producto.esCerrado
-              const tipoVenta = esProductoCerrado ? (item.vendidoEnUnidades ? 'unidades' : 'cajas') : null
-              
-              return (
-                <div key={itemKey} className="carrito-item">
-                  <div className="item-info">
-                    <h4>{item.producto.nombre}</h4>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-                      {item.producto.marca && (
-                        <span className="marca-badge-carrito">{item.producto.marca}</span>
-                      )}
-                      {item.producto.presentacion && (
-                        <span className="presentacion-badge-carrito">{item.producto.presentacion}</span>
-                      )}
-                      {item.subcategoriaSeleccionada && (
-                        <span className="subcategoria-badge-carrito">{item.subcategoriaSeleccionada}</span>
-                      )}
-                      {tipoVenta && (
-                        <span className="tipo-venta-badge">
-                          {tipoVenta === 'unidades' ? '📄 Por unidad' : '📦 Por caja'}
-                        </span>
-                      )}
-                    </div>
-                    <p className="item-precio-unitario">
-                      S/ {precio.toFixed(2)} {tipoVenta === 'unidades' ? 'c/unidad' : tipoVenta === 'cajas' ? 'c/caja' : 'c/u'}
-                    </p>
-                  </div>
-                  
-                  <div className="item-controls">
-                    <button
-                      className="btn-cantidad"
-                      onClick={() => onActualizarCantidad(item.producto.id, item.cantidad - 1, item.subcategoriaSeleccionada, item.vendidoEnUnidades)}
-                    >
-                      −
-                    </button>
-                    <span className="cantidad">
-                      {item.cantidad} {tipoVenta === 'unidades' ? 'unid.' : tipoVenta === 'cajas' ? 'cajas' : ''}
-                    </span>
-                    <button
-                      className="btn-cantidad"
-                      onClick={() => onActualizarCantidad(item.producto.id, item.cantidad + 1, item.subcategoriaSeleccionada, item.vendidoEnUnidades)}
-                    >
-                      +
-                    </button>
-                    {item.producto.preciosPorSubcategoria && Object.keys(item.producto.preciosPorSubcategoria).length > 0 && (
-                      <button
-                        className="btn-cambiar-variante"
-                        onClick={() => setItemEditando(item)}
-                        title="Cambiar variante"
-                      >
-                        🔄
-                      </button>
-                    )}
-                    <button
-                      className="btn-eliminar"
-                      onClick={() => onEliminar(item.producto.id, item.subcategoriaSeleccionada, item.vendidoEnUnidades)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                  
-                  <div className="item-subtotal">
-                    S/ {(precio * item.cantidad).toFixed(2)}
-                  </div>
-                </div>
-              )
-            })}
+            {items.map((item, index) => (
+              <CarritoItem
+                key={`${item.producto.id}-${item.subcategoriaSeleccionada || 'base'}-${item.vendidoEnUnidades ? 'unidades' : 'caja'}-${index}`}
+                item={item}
+                obtenerPrecio={obtenerPrecio}
+                onActualizarCantidad={onActualizarCantidad}
+                onEliminar={onEliminar}
+                onEditarVariante={handleEditarVariante}
+              />
+            ))}
           </div>
-          
+
           <div className="carrito-footer">
             <div className="total-section">
               <span className="total-label">Total:</span>
               <span className="total-amount">S/ {total.toFixed(2)}</span>
             </div>
-            
-            <button 
+
+            <button
               className="btn-procesar"
               onClick={onProcesarVenta}
             >
@@ -144,3 +178,5 @@ export default function Carrito({
     </div>
   )
 }
+
+export default memo(Carrito)

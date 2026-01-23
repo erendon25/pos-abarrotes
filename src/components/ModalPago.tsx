@@ -249,11 +249,11 @@ export default function ModalPago({ total, onConfirmar, onCancelar, usuario, cli
                 Efectivo
               </label>
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]*\.?[0-9]*"
                 value={montoEfectivo}
-                onChange={(e) => handleMontoEfectivo(e.target.value)}
+                onChange={(e) => handleMontoEfectivo(e.target.value.replace(/[^0-9.]/g, ''))}
                 placeholder="0.00"
                 className="monto-input"
                 autoFocus
@@ -269,11 +269,11 @@ export default function ModalPago({ total, onConfirmar, onCancelar, usuario, cli
                 Yape
               </label>
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]*\.?[0-9]*"
                 value={montoYape}
-                onChange={(e) => handleMontoYape(e.target.value)}
+                onChange={(e) => handleMontoYape(e.target.value.replace(/[^0-9.]/g, ''))}
                 placeholder="0.00"
                 className="monto-input"
               />
@@ -291,11 +291,11 @@ export default function ModalPago({ total, onConfirmar, onCancelar, usuario, cli
                 )}
               </label>
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]*\.?[0-9]*"
                 value={montoTarjeta}
-                onChange={(e) => handleMontoTarjeta(e.target.value)}
+                onChange={(e) => handleMontoTarjeta(e.target.value.replace(/[^0-9.]/g, ''))}
                 placeholder={aplicarPorcentajeTarjeta ? totalConAdicionales.toFixed(2) : "0.00"}
                 className="monto-input"
               />
@@ -310,11 +310,11 @@ export default function ModalPago({ total, onConfirmar, onCancelar, usuario, cli
                 Crédito
               </label>
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]*\.?[0-9]*"
                 value={montoCredito}
-                onChange={(e) => handleMontoCredito(e.target.value)}
+                onChange={(e) => handleMontoCredito(e.target.value.replace(/[^0-9.]/g, ''))}
                 placeholder="0.00"
                 className="monto-input"
               />
