@@ -39,6 +39,16 @@ export default function Sidebar({ vistaActual, cambiarVista, usuario, cerrarSesi
                     </button>
                 )}
 
+                {tienePermiso('ventas') && (
+                    <button
+                        className={`nav-item ${vistaActual === 'clientes' ? 'active' : ''}`}
+                        onClick={() => cambiarVista('clientes')}
+                    >
+                        <span className="icon">👥</span>
+                        Clientes / Créditos
+                    </button>
+                )}
+
                 {tienePermiso('reportes') && (
                     <button
                         className={`nav-item ${vistaActual === 'reportes' ? 'active' : ''}`}

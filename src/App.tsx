@@ -1,8 +1,9 @@
 ﻿import { useState, useEffect, useRef } from 'react'
-import { Producto, ItemCarrito, Venta, Categoria, MetodoPago, Usuario, IngresoMercaderia, MovimientoInventario } from './types'
+import { Producto, ItemCarrito, Venta, Categoria, MetodoPago, Usuario, IngresoMercaderia, MovimientoInventario, Cliente } from './types'
 import ProductosGrid from './components/ProductosGrid'
 import Carrito from './components/Carrito'
 import Reportes from './components/Reportes'
+import Clientes from './components/Clientes'
 import Configuracion from './components/Configuracion'
 // import RegistroVentas from './components/RegistroVentas' // Keep if needed later or remove
 import IngresoMercaderiaComponent from './components/IngresoMercaderia'
@@ -16,7 +17,7 @@ import CatalogoProductos from './components/CatalogoProductos'
 import GestionCategorias from './components/GestionCategorias'
 import Inventario from './components/Inventario'
 import { obtenerSiguienteTicket, obtenerSiguienteBoleta } from './utils/numeracion'
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { doc, updateDoc } from 'firebase/firestore'
 import { db } from './firebase'
 import LectorCodigoBarras from './components/LectorCodigoBarras'
 import './App.css'
@@ -51,7 +52,7 @@ const categoriasIniciales: Categoria[] = [
 ]
 
 // Tipos de Vista actualizados
-type Vista = 'venta' | 'reportes' | 'catalogo' | 'categorias' | 'ingresoMercaderia' | 'usuarios' | 'configuracion' | 'inventario'
+type Vista = 'venta' | 'reportes' | 'catalogo' | 'categorias' | 'ingresoMercaderia' | 'usuarios' | 'configuracion' | 'inventario' | 'clientes'
 
 function App() {
   // Auth state
@@ -101,6 +102,12 @@ function App() {
       } catch (e) { }
     }
     return []
+  })
+
+  // Clientes State
+  const [clientes, setClientes] = useState<Cliente[]>(() => {
+    const saved = localStorage.getItem('pos_clientes')
+    return saved ? JSON.parse(saved) : []
   })
 
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null)
@@ -234,8 +241,30 @@ function App() {
 
   // Load products from Firebase (prioritize DB over local for synchronization)
   useEffect(() => {
+    // Hybrid Loading: Local First, then Firebase (Sync Once)
     const fetchProductos = async () => {
+      // 1. Check LocalStorage
+      const local = localStorage.getItem('pos_productos')
+      let productosLocales = []
+
+      if (local) {
+        try {
+          productosLocales = JSON.parse(local)
+          if (productosLocales.length > 0) {
+            setProductos(productosLocales)
+            // If we found local data, we stop here to respect "Download once" rule
+            // UNLESS we want to implement a 'sync' button later.
+            console.log("Datos cargados desde almacenamiento local (PC).")
+            return
+          }
+        } catch (e) { console.error("Error leyendo cache local", e) }
+      }
+
+      // 2. Fetch from Firebase (Only if no local data)
+      console.log("Descargando base de datos por primera vez...")
       try {
+        // Need to import these! Assumed imports exist at top.
+        const { collection, getDocs } = await import('firebase/firestore');
         const querySnapshot = await getDocs(collection(db, "productos"))
         const docs: Producto[] = []
         querySnapshot.forEach((doc) => {
@@ -245,21 +274,17 @@ function App() {
         if (docs.length > 0) {
           setProductos(docs)
           localStorage.setItem('pos_productos', JSON.stringify(docs))
+          console.log("Datos descargados y guardados localmente.")
         } else {
-          // If DB is empty, check local or use initial
-          const local = localStorage.getItem('pos_productos')
-          if (local) {
-            setProductos(JSON.parse(local))
-          } else {
-            setProductos(productosIniciales)
-          }
+          // If DB is empty, use initial
+          if (productosLocales.length === 0) setProductos(productosIniciales)
         }
       } catch (error) {
-        console.error("Error loading from Firebase:", error)
-        // Fallback to local
-        const local = localStorage.getItem('pos_productos')
-        if (local) {
-          setProductos(JSON.parse(local))
+        console.error("Error cargando desde Firebase:", error)
+        if (productosLocales.length > 0) {
+          setProductos(productosLocales)
+        } else {
+          setProductos(productosIniciales)
         }
       }
     }
@@ -460,11 +485,26 @@ function App() {
     setMostrarModalPago(true)
   }
 
-  const confirmarPago = async (metodosPago: MetodoPago[], vuelto: number, requiereBoleta: boolean, usuario?: Usuario, porcentajeTarjeta?: number) => {
+  const confirmarPago = async (metodosPago: MetodoPago[], vuelto: number, requiereBoleta: boolean, usuario?: Usuario, porcentajeTarjeta?: number, cliente?: Cliente) => {
     const subtotal = calcularTotal()
     let total = subtotal
     if (porcentajeTarjeta) {
       total += subtotal * (porcentajeTarjeta / 100)
+    }
+
+    // Handle Credit Logic
+    const creditoMetodo = metodosPago.find(m => m.tipo === 'credito')
+    let ventaEstadoPago: 'pagado' | 'pendiente' = 'pagado'
+
+    if (creditoMetodo) {
+      if (!cliente) {
+        alert("Error: Venta a crédito sin cliente asignado.")
+        return
+      }
+      ventaEstadoPago = 'pendiente'
+      // Update Client Debt
+      const nuevaDeuda = (cliente.deudaActual || 0) + creditoMetodo.monto
+      setClientes(prev => prev.map(c => c.id === cliente.id ? { ...c, deudaActual: nuevaDeuda } : c))
     }
 
     const tipoComprobante = requiereBoleta ? 'boleta' : 'ticket'
@@ -492,7 +532,9 @@ function App() {
       requiereBoleta,
       porcentajeTarjeta,
       reimpresiones: 0,
-      anulada: false
+      anulada: false,
+      clienteId: cliente?.id,
+      estadoPago: ventaEstadoPago
     }
     setVentas(prev => [...prev, nuevaVenta])
     setVentaComprobante(nuevaVenta)
@@ -600,6 +642,68 @@ function App() {
   useEffect(() => { localStorage.setItem('pos_usuarios', JSON.stringify(usuarios)) }, [usuarios])
   useEffect(() => { localStorage.setItem('pos_ventas', JSON.stringify(ventas)) }, [ventas])
   useEffect(() => { localStorage.setItem('pos_ingresos', JSON.stringify(ingresos)) }, [ingresos])
+  useEffect(() => { localStorage.setItem('pos_clientes', JSON.stringify(clientes)) }, [clientes])
+
+  const registrarPagoDeuda = (clienteId: string, monto: number, metodoPago: MetodoPago['tipo']) => {
+    // Create a "Phantom" Sale to record the cash inflow
+    const pagoVenta: Venta = {
+      id: `PAGO-${Date.now()}`,
+      fecha: new Date(),
+      items: [], // No items affected
+      total: monto,
+      metodosPago: [{ tipo: metodoPago, monto }],
+      usuario: currentUser || undefined,
+      tipoComprobante: 'ticket',
+      numeroTicket: obtenerSiguienteTicket(), // Generate ticket for the payment
+      reimpresiones: 0,
+      anulada: false,
+      clienteId: clienteId,
+      estadoPago: 'pagado'
+    }
+    setVentas(prev => [...prev, pagoVenta])
+    setVentaComprobante(pagoVenta) // Print receipt for payment
+  }
+
+  // --- Focus Logic for Scanning ---
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (vista === 'venta') {
+      // 1. Focus on mount/view switch
+      const timer = setTimeout(() => searchInputRef.current?.focus(), 50)
+
+      // 2. Global listener for scanning/typing
+      const handleGlobalKeyDown = (e: KeyboardEvent) => {
+        // Ignore if modals are open (including receipt)
+        if (mostrarModalPago || productoSeleccionado || productoCerradoSeleccionado || ventaComprobante) return
+
+        // Ignore if focus is already on an interactive element
+        if (document.activeElement?.tagName === 'INPUT' ||
+          document.activeElement?.tagName === 'TEXTAREA' ||
+          document.activeElement?.tagName === 'SELECT') {
+          return
+        }
+
+        // Ignore control keys
+        if (e.ctrlKey || e.altKey || e.metaKey || e.key.length > 1) {
+          // Exception: If it's Enter, checking for scan buffer could be here,
+          // but relying on focus + standard input behavior is simpler.
+          return
+        }
+
+        // Focus input so the key is captured
+        searchInputRef.current?.focus()
+      }
+
+      window.addEventListener('keydown', handleGlobalKeyDown)
+
+      return () => {
+        window.removeEventListener('keydown', handleGlobalKeyDown)
+        clearTimeout(timer)
+      }
+    }
+  }, [vista, mostrarModalPago, productoSeleccionado, productoCerradoSeleccionado, ventaComprobante])
+
 
 
   // Views Rendering
@@ -696,45 +800,7 @@ function App() {
     }
   }
 
-  // --- Focus Logic for Scanning ---
-  const searchInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (vista === 'venta') {
-      // 1. Focus on mount/view switch
-      const timer = setTimeout(() => searchInputRef.current?.focus(), 50)
-
-      // 2. Global listener for scanning/typing
-      const handleGlobalKeyDown = (e: KeyboardEvent) => {
-        // Ignore if modals are open (including receipt)
-        if (mostrarModalPago || productoSeleccionado || productoCerradoSeleccionado || ventaComprobante) return
-
-        // Ignore if focus is already on an interactive element
-        if (document.activeElement?.tagName === 'INPUT' ||
-          document.activeElement?.tagName === 'TEXTAREA' ||
-          document.activeElement?.tagName === 'SELECT') {
-          return
-        }
-
-        // Ignore control keys
-        if (e.ctrlKey || e.altKey || e.metaKey || e.key.length > 1) {
-          // Exception: If it's Enter, checking for scan buffer could be here,
-          // but relying on focus + standard input behavior is simpler.
-          return
-        }
-
-        // Focus input so the key is captured
-        searchInputRef.current?.focus()
-      }
-
-      window.addEventListener('keydown', handleGlobalKeyDown)
-
-      return () => {
-        window.removeEventListener('keydown', handleGlobalKeyDown)
-        clearTimeout(timer)
-      }
-    }
-  }, [vista, mostrarModalPago, productoSeleccionado, productoCerradoSeleccionado, ventaComprobante])
 
   return (
     <Layout
@@ -782,6 +848,7 @@ function App() {
                 )}
               </div>
               <LectorCodigoBarras onScan={handleScan} activo={vista === 'venta'} />
+
             </div>
           </div>
 
@@ -841,6 +908,7 @@ function App() {
               console.log("Venta anulada localmente: ", id)
             }}
             onReimprimirTicket={(venta) => setVentaComprobante(venta)}
+            clientes={clientes}
           />
         </div>
 
@@ -877,6 +945,15 @@ function App() {
             onVolver={() => setVista('venta')}
             onRegistrarIngreso={registrarIngreso}
             usuarios={usuarios}
+          />
+        </div>
+
+        <div style={{ display: vista === 'clientes' ? 'block' : 'none', height: '100%' }}>
+          <Clientes
+            clientes={clientes}
+            setClientes={setClientes}
+            onRegistrarPago={registrarPagoDeuda}
+            usuario={currentUser}
           />
         </div>
 
@@ -930,6 +1007,7 @@ function App() {
           onConfirmar={confirmarPago}
           onCancelar={() => setMostrarModalPago(false)}
           usuario={currentUser} // Pass current user
+          clientes={clientes}
         />
       )}
 

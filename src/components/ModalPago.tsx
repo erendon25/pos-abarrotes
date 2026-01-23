@@ -9,17 +9,25 @@ interface ModalPagoProps {
     vuelto: number,
     requiereBoleta: boolean,
     usuario?: Usuario,
-    porcentajeTarjeta?: number
+    porcentajeTarjeta?: number,
+    cliente?: Cliente
   ) => void
   onCancelar: () => void
   usuario?: Usuario | null
+  clientes: Cliente[]
 }
 
-export default function ModalPago({ total, onConfirmar, onCancelar, usuario }: ModalPagoProps) {
+import { Cliente } from '../types'
+
+export default function ModalPago({ total, onConfirmar, onCancelar, usuario, clientes }: ModalPagoProps) {
   const [metodosPago, setMetodosPago] = useState<MetodoPago[]>([])
   const [montoEfectivo, setMontoEfectivo] = useState('')
   const [montoYape, setMontoYape] = useState('')
   const [montoTarjeta, setMontoTarjeta] = useState('')
+  const [montoCredito, setMontoCredito] = useState('')
+
+  const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState('')
+
   const [requiereBoleta, setRequiereBoleta] = useState(false)
   const [aplicarPorcentajeTarjeta, setAplicarPorcentajeTarjeta] = useState(false)
   const [porcentajeTarjeta, setPorcentajeTarjeta] = useState(() => {
@@ -57,7 +65,7 @@ export default function ModalPago({ total, onConfirmar, onCancelar, usuario }: M
     return vuelto > 0 ? vuelto : 0
   }
 
-  const actualizarMetodoPago = (tipo: 'efectivo' | 'yape' | 'tarjeta', monto: number) => {
+  const actualizarMetodoPago = (tipo: 'efectivo' | 'yape' | 'tarjeta' | 'credito', monto: number) => {
     setMetodosPago(prev => {
       const otros = prev.filter(m => m.tipo !== tipo)
       if (monto > 0) {
@@ -85,6 +93,12 @@ export default function ModalPago({ total, onConfirmar, onCancelar, usuario }: M
     actualizarMetodoPago('tarjeta', monto)
   }
 
+  const handleMontoCredito = (valor: string) => {
+    setMontoCredito(valor)
+    const monto = parseFloat(valor) || 0
+    actualizarMetodoPago('credito', monto)
+  }
+
   const totalConAdicionales = calcularTotalConAdicionales()
   const totalPagado = calcularTotalPagado()
   const vuelto = calcularVuelto()
@@ -109,12 +123,31 @@ export default function ModalPago({ total, onConfirmar, onCancelar, usuario }: M
     const puedeConfirmarFinal = metodosPagoFinal.reduce((sum, metodo) => sum + metodo.monto, 0) >= totalConAdicionales
 
     if (puedeConfirmarFinal) {
+      // Validate Credit
+      const hayCredito = metodosPagoFinal.some(m => m.tipo === 'credito')
+      if (hayCredito && !clienteSeleccionadoId) {
+        alert("Debe seleccionar un cliente para la venta a crédito.")
+        return
+      }
+
+      // Add client info to callback
+      // We need to pass this up. Since current signature doesn't support it, 
+      // we might need to rely on the parent or attach it to the Sale logic later?
+      // Better: pass it as part of 'usuario' arg? No.
+      // We will pass it as an extra argument or modify the signature?
+      // Since App.tsx calls this, we can modify the signature in the Prop interface (already done usually? no).
+      // Let's modify the onConfirmar signature in the interface first!
+      // In this chunk I'm just adding logic.
+
+      const cliente = clientes.find(c => c.id === clienteSeleccionadoId)
+
       onConfirmar(
         metodosPagoFinal,
         vueltoFinal,
         requiereBoleta,
         usuario || undefined,
-        porcentajeTarjetaNum
+        porcentajeTarjetaNum,
+        cliente // New Argument
       )
     }
   }
@@ -268,6 +301,37 @@ export default function ModalPago({ total, onConfirmar, onCancelar, usuario }: M
               />
               {parseFloat(montoTarjeta) > 0 && (
                 <span className="monto-ingresado">S/ {parseFloat(montoTarjeta).toFixed(2)}</span>
+              )}
+            </div>
+
+            <div className="metodo-pago-item">
+              <label className="metodo-label">
+                <span className="metodo-icon">📝</span>
+                Crédito
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={montoCredito}
+                onChange={(e) => handleMontoCredito(e.target.value)}
+                placeholder="0.00"
+                className="monto-input"
+              />
+              {parseFloat(montoCredito) > 0 && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <select
+                    value={clienteSeleccionadoId}
+                    onChange={(e) => setClienteSeleccionadoId(e.target.value)}
+                    className="input-select"
+                    style={{ width: '100%', fontSize: '0.9rem' }}
+                  >
+                    <option value="">-- Seleccionar Cliente --</option>
+                    {clientes.map(c => (
+                      <option key={c.id} value={c.id}>{c.nombre}</option>
+                    ))}
+                  </select>
+                </div>
               )}
             </div>
           </div>

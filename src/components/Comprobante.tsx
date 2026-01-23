@@ -66,23 +66,25 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
             * { box-sizing: border-box; }
             body { 
               font-family: 'Courier New', Courier, monospace; 
-              width: 72mm; /* Safe printable width for 80mm paper */
-              margin: 0 auto; 
-              padding: 2mm; 
+              width: 74mm; /* Optimized for 80mm paper with safe margins */
+              margin: 0;
+              padding: 2mm 4mm 2mm 2mm; /* Right margin extra to prevent cutoff */
               font-size: 11px;
               color: #000;
-              overflow: hidden;
+              line-height: 1.2;
             }
             .center { text-align: center; }
+            .left { text-align: left; }
+            .right { text-align: right; }
             .bold { font-weight: bold; }
             .uppercase { text-transform: uppercase; }
             
             /* Header */
             .header-title { font-size: 14px; margin-bottom: 5px; word-break: break-word; }
-            .header-info { font-size: 10px; margin-bottom: 2px; }
+            .header-info { font-size: 11px; margin-bottom: 2px; }
             
             /* Separators */
-            .divider { border-top: 1px solid #ddd; margin: 5px 0; }
+            .divider { border-top: 1px dashed #000; margin: 5px 0; }
             .divider-dashed { border-top: 1px dashed #000; margin: 5px 0; }
             
             /* Flex Rows for Info */
@@ -91,33 +93,35 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
             /* Table */
             .table-container { margin-top: 5px; width: 100%; }
             .table-header { 
-              background-color: #000; /* Black for better contrast */
-              color: white; 
+              border-bottom: 1px solid #000;
+              border-top: 1px solid #000;
               font-weight: bold;
               padding: 2px 0;
               display: flex;
-              font-size: 9px;
+              font-size: 10px;
             }
-            .col-prod { width: 40%; text-align: left; padding-left: 2px; }
-            .col-cant { width: 15%; text-align: center; }
-            .col-precio { width: 20%; text-align: right; }
-            .col-total { width: 25%; text-align: right; padding-right: 2px; }
+
+            /* Compact layout for columns */
+            .col-prod { flex: 1; text-align: left; padding-right: 2px; overflow: hidden; }
+            .col-cant { width: 10%; text-align: center; white-space: nowrap; }
+            .col-precio { width: 18%; text-align: right; white-space: nowrap; }
+            .col-total { width: 20%; text-align: right; white-space: nowrap; }
             
             .table-row {
               display: flex;
-              border-bottom: 1px dotted #000;
-              padding: 4px 0;
+              border-bottom: 0px dotted #ccc; /* Removed for cleaner look on poor printers, or keep minimal */
+              padding: 3px 0;
               align-items: flex-start;
             }
             
-            .prod-name { font-size: 10px; word-break: break-word; text-align: left; }
+            .prod-name { font-size: 11px; word-break: break-word; text-align: left; }
             
             /* Totals */
             .total-section { margin-top: 5px; }
-            .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin-bottom: 2px; }
+            .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; margin-bottom: 4px; }
             .payment-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px; }
             
-            .footer { margin-top: 10px; font-size: 10px; padding-bottom: 5px;}
+            .footer { margin-top: 10px; font-size: 11px; padding-bottom: 15px; text-align: center; }
           </style>
         </head>
         <body>
@@ -135,7 +139,7 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
             <span>${numeroComprobante}</span>
           </div>
           <div class="row-flex">
-            <span>PAGO CON:</span>
+            <span>PAGO:</span>
             <span>${obtenerMetodosPagoTexto()}</span>
           </div>
           <div class="row-flex">
@@ -143,16 +147,16 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
             <span>${formatearFecha(venta.fecha)}</span>
           </div>
           <div class="row-flex">
-            <span>FACTURADO POR:</span>
+            <span>CAJERO:</span>
             <span class="uppercase">${venta.usuario?.nombre || 'General'}</span>
           </div>
           
           <!-- Table -->
           <div class="table-container">
             <div class="table-header uppercase">
-              <div class="col-prod">PRODUCTO</div>
+              <div class="col-prod">DESCRIP</div>
               <div class="col-cant">CANT</div>
-              <div class="col-precio">PRECIO</div>
+              <div class="col-precio">P.U.</div>
               <div class="col-total">TOTAL</div>
             </div>
             
@@ -167,8 +171,8 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
                 <div class="table-row">
                   <div class="col-prod prod-name">${nombre}</div>
                   <div class="col-cant">${item.cantidad}</div>
-                  <div class="col-precio">S/ ${precio.toFixed(2)}</div>
-                  <div class="col-total">S/ ${total.toFixed(2)}</div>
+                  <div class="col-precio">${precio.toFixed(2)}</div>
+                  <div class="col-total">${total.toFixed(2)}</div>
                 </div>
                 `;
     }).join('')}
@@ -186,7 +190,7 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
              <div class="divider-dashed"></div>
              
              <div class="payment-row">
-               <span>PAGO:</span>
+               <span>PAGADO:</span>
                <span>S/ ${venta.metodosPago.reduce((acc, m) => acc + m.monto, 0).toFixed(2)}</span>
              </div>
              <div class="payment-row">

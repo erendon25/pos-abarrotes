@@ -100,12 +100,12 @@ export default function CatalogoProductos({ productos, setProductos, categorias,
         setProductos(nuevosProductos)
         localStorage.setItem('pos_productos', JSON.stringify(nuevosProductos))
 
-        // Save to Firebase
+        // Save to Firebase (Disabled for Offline Mode preference)
         try {
-            await setDoc(doc(db, "productos", nuevoProducto.id), nuevoProducto)
+            // await setDoc(doc(db, "productos", nuevoProducto.id), nuevoProducto)
         } catch (error) {
             console.error("Error saving to Firebase:", error)
-            alert("Error guardando en la nube. Se guardó localmente.")
+            // alert("Error guardando en la nube. Se guardó localmente.")
         }
 
         setMostrarModal(false)

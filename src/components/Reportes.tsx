@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Venta, ItemCarrito, Usuario } from '../types'
+import { Venta, ItemCarrito, Usuario, Cliente } from '../types'
 import './Reportes.css'
 
 interface ReportesProps {
@@ -8,6 +8,7 @@ interface ReportesProps {
   onAnularVenta: (id: string) => void
   onReimprimirTicket: (venta: Venta) => void
   usuario: Usuario
+  clientes: Cliente[]
 }
 
 interface ProductoVendido {
@@ -18,12 +19,12 @@ interface ProductoVendido {
   subcategoria?: string
 }
 
-export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimirTicket, usuario }: ReportesProps) {
+export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimirTicket, usuario, clientes }: ReportesProps) {
   // ... (existing state)
   const [categoriaExpandida, setCategoriaExpandida] = useState<string | null>(null)
   const [subcategoriaExpandida, setSubcategoriaExpandida] = useState<string | null>(null)
-  const [filtroFechaDesde, setFiltroFechaDesde] = useState('')
-  const [filtroFechaHasta, setFiltroFechaHasta] = useState('')
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState(() => new Date().toLocaleDateString('en-CA')) // YYYY-MM-DD
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState(() => new Date().toLocaleDateString('en-CA'))
 
   const handleAnular = async (id: string) => {
     // Check permission - Default safe fallback is true if permission structure is partial old
@@ -88,7 +89,8 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
 
   // ... (existing calculations logic - no changes needed there)
   // Calcular venta total
-  const ventaTotal = ventasFiltradas.reduce((sum, venta) => sum + (venta.anulada ? 0 : venta.total), 0)
+  // Calcular venta total (Legacy variable removed)
+
 
   // Calcular ventas por categoría
   const ventasPorCategoria: Record<string, number> = {}
@@ -199,7 +201,8 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
   const ventasPorMetodo: Record<string, number> = {
     efectivo: 0,
     yape: 0,
-    tarjeta: 0
+    tarjeta: 0,
+    credito: 0
   }
 
   ventasFiltradas.forEach(venta => {
@@ -219,8 +222,9 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
   }
 
   const limpiarFiltros = () => {
-    setFiltroFechaDesde('')
-    setFiltroFechaHasta('')
+    const today = new Date().toLocaleDateString('en-CA')
+    setFiltroFechaDesde(today)
+    setFiltroFechaHasta(today)
   }
 
   const formatearFecha = (fecha: string) => {
@@ -234,13 +238,135 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
     })
   }
 
+  const handleImprimirReporte = () => {
+    // Generate simple thermal print HTML
+    const printWindow = window.open('', '', 'width=300,height=600')
+    if (!printWindow) return
+
+    const totalCobrado = ventasPorMetodo.efectivo + ventasPorMetodo.yape + ventasPorMetodo.tarjeta
+
+    // Separar Ingresos: Ventas Varios vs Cobros de Deuda
+    // 1. Cobros de Deuda (Ventas sin items)
+    const cobrosDeudaVentas = ventasFiltradas.filter(v => v.items.length === 0 && !v.anulada)
+    const totalCobroDeudas = cobrosDeudaVentas.reduce((sum, v) => sum + v.total, 0)
+
+    // 2. Ventas de Productos (Total Cobrado - Cobros Deuda)
+    // OJO: TotalCobrado ya incluye todo lo que entró en dinero. Restamos lo que es deuda para saber venta neta.
+    const totalVentaProductos = totalCobrado - totalCobroDeudas
+
+    // 3. Deuda Total Global (Saldo Pendiente de todos los clientes)
+    // Usamos el prop 'clientes' que ahora recibimos
+    const totalDeudaPendienteGlobal = clientes.reduce((sum, c) => sum + (c.deudaActual || 0), 0)
+
+    const fechaStr = new Date().toLocaleString('es-PE')
+    const desdeStr = filtroFechaDesde ? formatearFecha(filtroFechaDesde) : 'Inicio'
+    const hastaStr = filtroFechaHasta ? formatearFecha(filtroFechaHasta) : 'Hoy'
+
+    const html = `
+      <html>
+      <head>
+        <style>
+          @page { margin: 0; size: auto; }
+          body { 
+            font-family: 'Courier New', Courier, monospace; 
+            width: 100%;
+            max-width: 72mm;
+            margin: 0;
+            padding: 2mm; 
+            font-size: 11px;
+            color: #000;
+          }
+          .bold { font-weight: bold; }
+          .center { text-align: center; }
+          .right { text-align: right; }
+          .header { text-align: center; margin-bottom: 5px; border-bottom: 1px dashed #000; padding-bottom: 5px; }
+          .title { font-size: 14px; font-weight: bold; margin: 0; }
+          .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+          .row-indent { display: flex; justify-content: space-between; margin-bottom: 2px; padding-left: 10px; font-size: 10px; }
+          .divider { border-top: 1px dashed #000; margin: 5px 0; }
+          .section-title { font-weight: bold; margin-top: 5px; margin-bottom: 2px; text-decoration: underline; }
+          .subtitle { font-size: 10px; font-style: italic; margin-bottom: 4px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <p class="title">REPORTE DE CIERRE</p>
+          <p style="margin:2px 0; font-size:10px;">${fechaStr}</p>
+          <p style="margin:2px 0; font-size:10px;">Del: ${desdeStr} Al: ${hastaStr}</p>
+          <p style="margin:2px 0; font-size:10px;">Usuario: ${usuario.nombre}</p>
+        </div>
+
+        <div class="row bold" style="font-size: 13px;">
+          <span>TOTAL INGRESOS CAJA:</span>
+          <span>S/ ${totalCobrado.toFixed(2)}</span>
+        </div>
+        
+        <div class="row-indent">
+          <span>> Venta Productos:</span>
+          <span>S/ ${totalVentaProductos.toFixed(2)}</span>
+        </div>
+        <div class="row-indent">
+          <span>> Cobro Ctas. Por Cobrar:</span>
+          <span>S/ ${totalCobroDeudas.toFixed(2)}</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <p class="section-title">DETALLE MEDIOS PAGO</p>
+        <div class="row"><span>Efectivo:</span><span>S/ ${ventasPorMetodo.efectivo.toFixed(2)}</span></div>
+        <div class="row"><span>Yape:</span><span>S/ ${ventasPorMetodo.yape.toFixed(2)}</span></div>
+        <div class="row"><span>Tarjeta:</span><span>S/ ${ventasPorMetodo.tarjeta.toFixed(2)}</span></div>
+        
+        <div class="divider"></div>
+        <div class="row bold">
+          <span>CRÉDITOS NUEVOS (HOY):</span>
+          <span>S/ ${ventasPorMetodo.credito.toFixed(2)}</span>
+        </div>
+        <div class="subtitle center">Ventas al crédito realizadas hoy</div>
+
+        <div class="divider"></div>
+        <div class="row bold" style="font-size:12px;">
+          <span>TOTAL CTAS. POR COBRAR:</span>
+          <span>S/ ${totalDeudaPendienteGlobal.toFixed(2)}</span>
+        </div>
+        <div class="subtitle center">Saldo deudores (Global Pendiente)</div>
+
+        <div class="divider"></div>
+        <p class="section-title">RESUMEN OPERACIONES</p>
+        <div class="row"><span>Ventas Realizadas:</span><span>${ventasFiltradas.filter(v => v.items.length > 0 && !v.anulada).length}</span></div>
+        <div class="row"><span>Pagos Deuda Recibidos:</span><span>${cobrosDeudaVentas.length}</span></div>
+        <div class="row"><span>Anuladas:</span><span>${ventasFiltradas.filter(v => v.anulada).length}</span></div>
+        
+        <br/><br/>
+        <div class="center" style="font-size:10px;">--- FIN DEL REPORTE ---</div>
+      </body>
+      </html>
+    `
+    printWindow.document.write(html)
+    printWindow.document.close()
+    printWindow.focus()
+    setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 250)
+  }
+
   return (
     <div className="reportes">
       <div className="reportes-header">
         <h1>Reportes y Estadísticas</h1>
-        <button className="btn-volver" onClick={onVolver}>
-          ← Volver a Venta
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={handleImprimirReporte}
+            className="btn-volver"
+            style={{ background: '#0f172a', color: 'white', display: 'flex', alignItems: 'center', gap: '5px' }}
+          >
+            🖨️ Imprimir Reporte
+          </button>
+          <button className="btn-volver" onClick={onVolver}>
+            ← Volver a Venta
+          </button>
+        </div>
       </div>
 
       {/* Filtro de fechas */}
@@ -293,13 +419,23 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
       </div>
 
       <div className="reportes-content">
-        {/* Venta Total */}
+        {/* Venta Total (Cash Flow) */}
         <div className="stat-card grande">
           <div className="stat-icon">💰</div>
           <div className="stat-info">
-            <span className="stat-label">Venta Total (Activa)</span>
-            <span className="stat-value">S/ {ventaTotal.toFixed(2)}</span>
-            <span className="stat-subtitle">{ventasFiltradas.filter(v => !v.anulada).length} venta{ventasFiltradas.filter(v => !v.anulada).length !== 1 ? 's' : ''} activa{ventasFiltradas.filter(v => !v.anulada).length !== 1 ? 's' : ''}</span>
+            <span className="stat-label">Venta Cobrada (Dia)</span>
+            <span className="stat-value">S/ {(ventasPorMetodo.efectivo + ventasPorMetodo.yape + ventasPorMetodo.tarjeta).toFixed(2)}</span>
+            <span className="stat-subtitle">Efectivo + Yape + Tarjeta</span>
+          </div>
+        </div>
+
+        {/* Cuentas Por Cobrar */}
+        <div className="stat-card grande" style={{ borderLeft: '4px solid #f59e0b' }}>
+          <div className="stat-icon">📝</div>
+          <div className="stat-info">
+            <span className="stat-label">Créditos (Por Cobrar)</span>
+            <span className="stat-value">S/ {ventasPorMetodo.credito.toFixed(2)}</span>
+            <span className="stat-subtitle">Ventas al crédito del periodo</span>
           </div>
         </div>
 
@@ -331,6 +467,15 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
               </div>
               <span className="metodo-total-stat">S/ {ventasPorMetodo.tarjeta.toFixed(2)}</span>
             </div>
+            {ventasPorMetodo.credito > 0 && (
+              <div className="metodo-pago-stat">
+                <div className="metodo-header">
+                  <span className="metodo-icon-stat">📝</span>
+                  <span className="metodo-nombre-stat">Crédito</span>
+                </div>
+                <span className="metodo-total-stat">S/ {ventasPorMetodo.credito.toFixed(2)}</span>
+              </div>
+            )}
           </div>
         </div>
 

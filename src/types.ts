@@ -60,7 +60,7 @@ export interface ItemCarrito {
 }
 
 export interface MetodoPago {
-  tipo: 'efectivo' | 'yape' | 'tarjeta'
+  tipo: 'efectivo' | 'yape' | 'tarjeta' | 'credito'
   monto: number
 }
 
@@ -80,6 +80,11 @@ export interface Venta {
   porcentajeBoleta?: number // Porcentaje adicional por boleta
   reimpresiones: number // Número de veces que se reimprimió
   anulada: boolean // true si la venta fue anulada
+
+  // Para Créditos
+  clienteId?: string // Si es venta a crédito o asociada a cliente
+  estadoPago?: 'pagado' | 'pendiente' // Pendiente si hay monto en crédito no pagado
+  montoPendiente?: number
 }
 
 export interface Categoria {
@@ -139,3 +144,26 @@ export interface MovimientoInventario {
   costoUnitario?: number // Costo del producto al momento del movimiento
   precioUnitario?: number // Precio del producto al momento del movimiento
 }
+
+// Clientes
+export interface Cliente {
+  id: string
+  nombre: string
+  telefono?: string
+  deudaActual: number // Monto total que debe
+}
+
+// Cuentas por Cobrar (Historial de pagos o deudas?)
+// Realmente la 'Venta' con metodoPago 'credito' es la deuda.
+// Pero necesitamos registrar los pagos a esas deudas.
+
+export interface PagoDeuda {
+  id: string
+  clienteId: string
+  fecha: Date
+  monto: number
+  metodoPago: 'efectivo' | 'yape' | 'tarjeta'
+  usuarioId?: string
+}
+
+
