@@ -16,6 +16,7 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
   const [prefijoBoleta, setPrefijoBoleta] = useState('BOL')
   const [numeroBoleta, setNumeroBoleta] = useState('1')
   const [porcentajeTarjeta, setPorcentajeTarjeta] = useState('3')
+  const [margenGanancia, setMargenGanancia] = useState('20') // Porcentaje de ganancia esperado
   const [empresa, setEmpresa] = useState<ConfiguracionEmpresa>({
     nombre: 'MINIMARKET COOL MARKET',
     ruc: '10444309852',
@@ -38,12 +39,12 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
       ipcRenderer.invoke('get-app-version').then((ver: string) => setAppVersion(ver)).catch((err: any) => console.error(err));
     }
 
-    // Cargar valores guardados
     const prefijoT = localStorage.getItem('pos_ticket_prefijo') || 'TICK'
     const numT = localStorage.getItem('pos_ticket_numero') || '1'
     const prefijoB = localStorage.getItem('pos_boleta_prefijo') || 'BOL'
     const numB = localStorage.getItem('pos_boleta_numero') || '1'
     const porcTarj = localStorage.getItem('pos_porcentaje_tarjeta') || '3'
+    const margenG = localStorage.getItem('pos_margen_ganancia') || '20'
 
     // Cargar datos de empresa
     const empresaGuardada = localStorage.getItem('pos_empresa')
@@ -62,6 +63,7 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
     setPrefijoBoleta(prefijoB)
     setNumeroBoleta(numB)
     setPorcentajeTarjeta(porcTarj)
+    setMargenGanancia(margenG)
 
     setInicializado(true)
   }, [])
@@ -86,7 +88,8 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
     localStorage.setItem('pos_boleta_prefijo', prefijoBoleta)
     localStorage.setItem('pos_boleta_numero', numeroBoleta)
     localStorage.setItem('pos_porcentaje_tarjeta', porcentajeTarjeta)
-  }, [prefijoTicket, numeroTicket, prefijoBoleta, numeroBoleta, porcentajeTarjeta, inicializado])
+    localStorage.setItem('pos_margen_ganancia', margenGanancia)
+  }, [prefijoTicket, numeroTicket, prefijoBoleta, numeroBoleta, porcentajeTarjeta, margenGanancia, inicializado])
 
   const guardarConfiguracion = () => {
     // Validar números
@@ -325,6 +328,32 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
                 </div>
                 <div className="config-info">
                   Este porcentaje se aplicará automáticamente cuando se active el checkbox de tarjeta
+                </div>
+              </div>
+            </div>
+
+            <div className="config-item">
+              <h3>💰 Margen de Ganancia Esperado</h3>
+              <div className="config-campos">
+                <div className="form-group-config">
+                  <label>Margen de Ganancia (%)</label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="100"
+                    value={margenGanancia}
+                    onChange={(e) => setMargenGanancia(e.target.value)}
+                    placeholder="20"
+                    className="input-config"
+                  />
+                </div>
+                <div className="config-info">
+                  <strong>Este porcentaje se usará para calcular la ganancia estimada en los reportes de ventas.</strong>
+                  <br />
+                  <span style={{ color: '#666', fontSize: '0.875rem' }}>
+                    Nota: Las ventas a crédito NO se incluyen en el cálculo de ganancia hasta que sean cobradas.
+                  </span>
                 </div>
               </div>
             </div>

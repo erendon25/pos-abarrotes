@@ -258,6 +258,16 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
     // Usamos el prop 'clientes' que ahora recibimos
     const totalDeudaPendienteGlobal = clientes.reduce((sum, c) => sum + (c.deudaActual || 0), 0)
 
+    // 4. Cálculo de Ganancia (solo dinero cobrado, NO incluye créditos)
+    // Leemos el margen de ganancia configurado
+    const margenGananciaStr = localStorage.getItem('pos_margen_ganancia') || '20'
+    const margenGanancia = parseFloat(margenGananciaStr) || 20
+
+    // La ganancia se calcula sobre el total de ventas de productos cobrados (no crédito)
+    // Fórmula: Si el margen es del 20%, significa que el 20% del precio de venta es ganancia
+    // Ganancia = totalVentaProductos * (margen / 100)
+    const gananciaEstimada = totalVentaProductos * (margenGanancia / 100)
+
     const fechaStr = new Date().toLocaleString('es-PE')
     const desdeStr = filtroFechaDesde ? formatearFecha(filtroFechaDesde) : 'Inicio'
     const hastaStr = filtroFechaHasta ? formatearFecha(filtroFechaHasta) : 'Hoy'
@@ -286,6 +296,7 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
           .divider { border-top: 1px dashed #000; margin: 5px 0; }
           .section-title { font-weight: bold; margin-top: 5px; margin-bottom: 2px; text-decoration: underline; }
           .subtitle { font-size: 10px; font-style: italic; margin-bottom: 4px; }
+          .ganancia { background: #f0f0f0; padding: 3px 5px; margin: 3px 0; }
         </style>
       </head>
       <body>
@@ -308,6 +319,16 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
         <div class="row-indent">
           <span>> Cobro Ctas. Por Cobrar:</span>
           <span>S/ ${totalCobroDeudas.toFixed(2)}</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="ganancia">
+          <div class="row bold" style="font-size: 12px;">
+            <span>💰 GANANCIA ESTIMADA:</span>
+            <span>S/ ${gananciaEstimada.toFixed(2)}</span>
+          </div>
+          <div class="subtitle center">(Margen: ${margenGanancia}% sobre venta cobrada)</div>
         </div>
 
         <div class="divider"></div>
@@ -410,9 +431,9 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
           <div className="filtro-fechas-info">
             <span>
               Mostrando {ventasFiltradas.length} de {ventas.length} ventas
-              {filtroFechaDesde && filtroFechaHasta && ` del ${formatearFecha(filtroFechaDesde)} al ${formatearFecha(filtroFechaHasta)}`}
-              {filtroFechaDesde && !filtroFechaHasta && ` desde ${formatearFecha(filtroFechaDesde)}`}
-              {!filtroFechaDesde && filtroFechaHasta && ` hasta ${formatearFecha(filtroFechaHasta)}`}
+              {filtroFechaDesde && filtroFechaHasta && ` del ${ formatearFecha(filtroFechaDesde) } al ${ formatearFecha(filtroFechaHasta) } `}
+              {filtroFechaDesde && !filtroFechaHasta && ` desde ${ formatearFecha(filtroFechaDesde) } `}
+              {!filtroFechaDesde && filtroFechaHasta && ` hasta ${ formatearFecha(filtroFechaHasta) } `}
             </span>
           </div>
         )}
