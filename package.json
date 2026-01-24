@@ -1,6 +1,6 @@
 {
   "name": "pos-abarrotes",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "author": "Erick Rendon",
   "description": "Punto de venta moderno para tienda de abarrotes",
   "main": "electron/main.js",
@@ -28,7 +28,8 @@
       "target": "nsis",
       "icon": "public/icon.png",
       "verifyUpdateCodeSignature": false,
-      "forceCodeSigning": false
+      "forceCodeSigning": false,
+      "signAndEditExecutable": false
     },
     "files": [
       "dist/**/*",
