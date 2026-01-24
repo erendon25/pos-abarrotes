@@ -431,9 +431,9 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
           <div className="filtro-fechas-info">
             <span>
               Mostrando {ventasFiltradas.length} de {ventas.length} ventas
-              {filtroFechaDesde && filtroFechaHasta && ` del ${ formatearFecha(filtroFechaDesde) } al ${ formatearFecha(filtroFechaHasta) } `}
-              {filtroFechaDesde && !filtroFechaHasta && ` desde ${ formatearFecha(filtroFechaDesde) } `}
-              {!filtroFechaDesde && filtroFechaHasta && ` hasta ${ formatearFecha(filtroFechaHasta) } `}
+              {filtroFechaDesde && filtroFechaHasta && ` del ${formatearFecha(filtroFechaDesde)} al ${formatearFecha(filtroFechaHasta)} `}
+              {filtroFechaDesde && !filtroFechaHasta && ` desde ${formatearFecha(filtroFechaDesde)} `}
+              {!filtroFechaDesde && filtroFechaHasta && ` hasta ${formatearFecha(filtroFechaHasta)} `}
             </span>
           </div>
         )}
@@ -667,10 +667,21 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
                     <td>{new Date(venta.fecha).toLocaleString('es-PE')}</td>
                     <td>{venta.numeroTicket || venta.numeroBoleta || venta.id.slice(-6)}</td>
                     <td>
-                      {venta.items.length} item{venta.items.length !== 1 ? 's' : ''}
-                      <span className="tooltip-items">
-                        ({venta.items.map(i => i.producto.nombre).join(', ')})
-                      </span>
+                      {venta.items.length === 0 && venta.clienteId ? (
+                        <div>
+                          <strong>PAGO CRÉDITO</strong>
+                          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                            {clientes.find(c => c.id === venta.clienteId)?.nombre || 'Cliente'}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {venta.items.length} item{venta.items.length !== 1 ? 's' : ''}
+                          <span className="tooltip-items">
+                            ({venta.items.map(i => i.producto.nombre).join(', ')})
+                          </span>
+                        </>
+                      )}
                     </td>
                     <td>
                       {venta.metodosPago.map(m => m.tipo).join(', ')}

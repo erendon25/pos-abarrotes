@@ -64,6 +64,20 @@ export default function Inventario({ productos, movimientos, onVolver, onAjustar
         return result
     }, [productos, busqueda, diaSeleccionado, configPeriodicidad])
 
+    // Pagination Logic
+    const [paginaActual, setPaginaActual] = useState(1)
+    const itemsPorPagina = 20
+
+    // Reset pagination when filter changes
+    useEffect(() => {
+        setPaginaActual(1)
+    }, [productosFiltrados])
+
+    const indexOfLastItem = paginaActual * itemsPorPagina
+    const indexOfFirstItem = indexOfLastItem - itemsPorPagina
+    const productosPaginados = productosFiltrados.slice(indexOfFirstItem, indexOfLastItem)
+    const totalPages = Math.ceil(productosFiltrados.length / itemsPorPagina)
+
     const handleConteoChange = (id: string, field: 'cantidad' | 'cajas' | 'unidades', value: string) => {
         // Allow empty string to let user delete content
         if (value === '') {
@@ -260,7 +274,7 @@ export default function Inventario({ productos, movimientos, onVolver, onAjustar
                         </tr>
                     </thead>
                     <tbody>
-                        {productosFiltrados.map(p => {
+                        {productosPaginados.map(p => {
                             const conteo = conteos[p.id]
                             const diff = calcularDiferencia(p)
                             const haContado = conteo !== undefined && (conteo.cantidad !== undefined || (conteo.cajas !== undefined))
@@ -361,6 +375,29 @@ export default function Inventario({ productos, movimientos, onVolver, onAjustar
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination Controls */}
+            {productosFiltrados.length > 0 && (
+                <div className="pagination-controls" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '1rem 0', gap: '1rem' }}>
+                    <button
+                        onClick={() => setPaginaActual(prev => Math.max(prev - 1, 1))}
+                        disabled={paginaActual === 1}
+                        style={{ padding: '0.5rem 1rem', border: '1px solid #ccc', borderRadius: '4px', background: paginaActual === 1 ? '#f3f4f6' : 'white', cursor: paginaActual === 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                        Anterior
+                    </button>
+
+                    <span>Página {paginaActual} de {totalPages} ({productosFiltrados.length} items)</span>
+
+                    <button
+                        onClick={() => setPaginaActual(prev => Math.min(prev + 1, totalPages))}
+                        disabled={paginaActual === totalPages}
+                        style={{ padding: '0.5rem 1rem', border: '1px solid #ccc', borderRadius: '4px', background: paginaActual === totalPages ? '#f3f4f6' : 'white', cursor: paginaActual === totalPages ? 'not-allowed' : 'pointer' }}
+                    >
+                        Siguiente
+                    </button>
+                </div>
+            )}
         </div>
     )
 }

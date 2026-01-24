@@ -1,7 +1,8 @@
-﻿import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Producto, ItemCarrito, Venta, Categoria, MetodoPago, Usuario, IngresoMercaderia, MovimientoInventario, Cliente } from './types'
 import ProductosGrid from './components/ProductosGrid'
 import Carrito from './components/Carrito'
+import Buscador from './components/Buscador'
 import Reportes from './components/Reportes'
 import Clientes from './components/Clientes'
 import Configuracion from './components/Configuracion'
@@ -19,8 +20,6 @@ import Inventario from './components/Inventario'
 import { obtenerSiguienteTicket, obtenerSiguienteBoleta } from './utils/numeracion'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from './firebase'
-import LectorCodigoBarras from './components/LectorCodigoBarras'
-import { useDebounce } from './utils/hooks'
 import './App.css'
 
 
@@ -115,7 +114,7 @@ function App() {
   const [productoCerradoSeleccionado, setProductoCerradoSeleccionado] = useState<Producto | null>(null)
   const [filtro, setFiltro] = useState('')
   // Debounce del filtro para mejor rendimiento en búsquedas (espera 200ms después de escribir)
-  const filtroDebounciado = useDebounce(filtro, 200)
+
   const [mostrarModalPago, setMostrarModalPago] = useState(false)
   const [ventaComprobante, setVentaComprobante] = useState<Venta | null>(null)
 
@@ -668,44 +667,9 @@ function App() {
   }
 
   // --- Focus Logic for Scanning ---
-  const searchInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (vista === 'venta') {
-      // 1. Focus on mount/view switch
-      const timer = setTimeout(() => searchInputRef.current?.focus(), 50)
 
-      // 2. Global listener for scanning/typing
-      const handleGlobalKeyDown = (e: KeyboardEvent) => {
-        // Ignore if modals are open (including receipt)
-        if (mostrarModalPago || productoSeleccionado || productoCerradoSeleccionado || ventaComprobante) return
 
-        // Ignore if focus is already on an interactive element
-        if (document.activeElement?.tagName === 'INPUT' ||
-          document.activeElement?.tagName === 'TEXTAREA' ||
-          document.activeElement?.tagName === 'SELECT') {
-          return
-        }
-
-        // Ignore control keys
-        if (e.ctrlKey || e.altKey || e.metaKey || e.key.length > 1) {
-          // Exception: If it's Enter, checking for scan buffer could be here,
-          // but relying on focus + standard input behavior is simpler.
-          return
-        }
-
-        // Focus input so the key is captured
-        searchInputRef.current?.focus()
-      }
-
-      window.addEventListener('keydown', handleGlobalKeyDown)
-
-      return () => {
-        window.removeEventListener('keydown', handleGlobalKeyDown)
-        clearTimeout(timer)
-      }
-    }
-  }, [vista, mostrarModalPago, productoSeleccionado, productoCerradoSeleccionado, ventaComprobante])
 
 
 
@@ -797,11 +761,7 @@ function App() {
   }
 
   // Manejar tecla Enter en el input de búsqueda
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && filtro.trim()) {
-      handleScan(filtro.trim())
-    }
-  }
+
 
 
 
@@ -817,43 +777,16 @@ function App() {
           className="venta-layout-vertical"
           style={{ display: vista === 'venta' ? 'flex' : 'none', flexDirection: 'column', height: '100%' }}
           onClick={() => {
-            // Refocus if user clicks blank space
-            if (document.activeElement !== searchInputRef.current) {
-              searchInputRef.current?.focus()
-            }
+            // Refocus handled by Buscador now
           }}
         >
           {/* 1. Bar of Search */}
-          <div className="search-section-main">
-            <div className="filtro-container-main" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
-              <div style={{ position: 'relative', width: '100%' }}>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  className="filtro-input-main"
-                  placeholder="Buscar por nombre, código de barras..."
-                  value={filtro}
-                  onChange={(e) => setFiltro(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onBlur={() => {
-                    // Optional: could force focus back, but let's allow blur for now if user wants to click buttons
-                  }}
-                  autoFocus
-                />
-                {filtro && (
-                  <button
-                    className="btn-limpiar-filtro-main"
-                    onClick={() => setFiltro('')}
-                    title="Limpiar búsqueda"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-              <LectorCodigoBarras onScan={handleScan} activo={vista === 'venta'} />
-
-            </div>
-          </div>
+          <Buscador
+            activo={vista === 'venta' && !mostrarModalPago && !productoSeleccionado && !ventaComprobante}
+            onFiltroChange={setFiltro}
+            onScan={handleScan}
+            filtroExterno={filtro}
+          />
 
           {/* 2. Cart */}
           <div className="cart-section-main">
@@ -875,7 +808,7 @@ function App() {
               productos={productos}
               categorias={categorias}
               onAgregar={agregarAlCarrito}
-              filtro={filtroDebounciado}
+              filtro={filtro}
               setFiltro={setFiltro}
             />
           </div>
@@ -1032,6 +965,7 @@ function App() {
         <Comprobante
           venta={ventaComprobante}
           onCerrar={() => setVentaComprobante(null)}
+          clientes={clientes}
         />
       )}
     </Layout>

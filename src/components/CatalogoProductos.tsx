@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Producto, Categoria, Usuario } from '../types'
 import { doc, deleteDoc } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -12,7 +12,6 @@ interface CatalogoProductosProps {
 }
 
 export default function CatalogoProductos({ productos, setProductos, categorias, usuario }: CatalogoProductosProps) {
-    // ... (rest of state logic usually) ...
     const [busqueda, setBusqueda] = useState('')
     const [mostrarModal, setMostrarModal] = useState(false)
     const [productoEditar, setProductoEditar] = useState<Producto | null>(null)
@@ -89,7 +88,6 @@ export default function CatalogoProductos({ productos, setProductos, categorias,
                 : (productoEditar?.preciosPorSubcategoria)
         }
 
-        // ... (Update Logic) ...
         // Optimistic update
         let nuevosProductos;
         if (productoEditar) {
@@ -125,14 +123,28 @@ export default function CatalogoProductos({ productos, setProductos, categorias,
         }
     }
 
-    // ... (Filter Logic) ...
+    // Filter Logic
     const productosFiltrados = productos.filter(p =>
         p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
         p.codigoBarras?.toLowerCase().includes(busqueda.toLowerCase()) ||
         p.categoria.toLowerCase().includes(busqueda.toLowerCase())
     )
 
-    // ... (Categoria object) ...
+    // Pagination Logic
+    const [paginaActual, setPaginaActual] = useState(1)
+    const itemsPorPagina = 20
+
+    // Reset pagination when search changes
+    useEffect(() => {
+        setPaginaActual(1)
+    }, [busqueda, productos])
+
+    const indexOfLastItem = paginaActual * itemsPorPagina
+    const indexOfFirstItem = indexOfLastItem - itemsPorPagina
+    const productosPaginados = productosFiltrados.slice(indexOfFirstItem, indexOfLastItem)
+    const totalPages = Math.ceil(productosFiltrados.length / itemsPorPagina)
+
+    // Categoria object
     const categoriaObj = categorias.find(c => c.nombre === categoria)
 
     // Per-permission Logic
@@ -180,7 +192,7 @@ export default function CatalogoProductos({ productos, setProductos, categorias,
                         </tr>
                     </thead>
                     <tbody>
-                        {productosFiltrados.map(p => (
+                        {productosPaginados.map(p => (
                             <tr key={p.id}>
                                 <td className="font-mono text-sm">{p.codigoBarras || '-'}</td>
                                 <td className="font-bold">{p.nombre}</td>
@@ -211,6 +223,31 @@ export default function CatalogoProductos({ productos, setProductos, categorias,
                     </tbody>
                 </table>
             </div>
+
+            {/* Paginación Controls */}
+            {productosFiltrados.length > 0 && (
+                <div className="pagination-controls" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '1rem 0', gap: '1rem' }}>
+                    <button
+                        onClick={() => setPaginaActual(prev => Math.max(prev - 1, 1))}
+                        disabled={paginaActual === 1}
+                        className="btn-pagination"
+                        style={{ padding: '0.5rem 1rem', border: '1px solid #ccc', borderRadius: '4px', background: paginaActual === 1 ? '#f3f4f6' : 'white', cursor: paginaActual === 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                        Anterior
+                    </button>
+
+                    <span>Página {paginaActual} de {totalPages} ({productosFiltrados.length} productos)</span>
+
+                    <button
+                        onClick={() => setPaginaActual(prev => Math.min(prev + 1, totalPages))}
+                        disabled={paginaActual === totalPages}
+                        className="btn-pagination"
+                        style={{ padding: '0.5rem 1rem', border: '1px solid #ccc', borderRadius: '4px', background: paginaActual === totalPages ? '#f3f4f6' : 'white', cursor: paginaActual === totalPages ? 'not-allowed' : 'pointer' }}
+                    >
+                        Siguiente
+                    </button>
+                </div>
+            )}
 
             {mostrarModal && (
                 <div className="modal-overlay">

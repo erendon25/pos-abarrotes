@@ -1,14 +1,15 @@
 import React from 'react'
-import { Venta, ItemCarrito, ConfiguracionEmpresa } from '../types'
+import { Venta, ItemCarrito, ConfiguracionEmpresa, Cliente } from '../types'
 
 import './Comprobante.css'
 
 interface ComprobanteProps {
   venta: Venta
   onCerrar: () => void
+  clientes?: Cliente[]
 }
 
-export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
+export default function Comprobante({ venta, onCerrar, clientes = [] }: ComprobanteProps) {
   const obtenerPrecio = (item: ItemCarrito) => {
     if (item.subcategoriaSeleccionada && item.producto.preciosPorSubcategoria) {
       return item.producto.preciosPorSubcategoria[item.subcategoriaSeleccionada] || item.producto.precio
@@ -176,6 +177,17 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
                 </div>
                 `;
     }).join('')}
+            ${venta.items.length === 0 && venta.clienteId ? (() => {
+        const cliente = clientes.find(c => c.id === venta.clienteId);
+        return `
+                 <div class="table-row">
+                   <div class="col-prod prod-name bold">PAGO DE CRÉDITO - ${cliente?.nombre || 'Cliente'}</div>
+                   <div class="col-cant">1</div>
+                   <div class="col-precio">${venta.total.toFixed(2)}</div>
+                   <div class="col-total">${venta.total.toFixed(2)}</div>
+                 </div>
+               `;
+      })() : ''}
           </div>
           
           <!-- Totals -->
@@ -350,6 +362,20 @@ export default function Comprobante({ venta, onCerrar }: ComprobanteProps) {
                       </tr>
                     )
                   })
+                )}
+                {venta.items.length === 0 && venta.clienteId && (
+                  <tr>
+                    <td>
+                      <strong>PAGO DE CRÉDITO</strong>
+                      <br />
+                      <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                        Cliente: {clientes.find(c => c.id === venta.clienteId)?.nombre || 'Desconocido'}
+                      </span>
+                    </td>
+                    <td className="text-center">1</td>
+                    <td className="text-right">S/ {venta.total.toFixed(2)}</td>
+                    <td className="text-right">S/ {venta.total.toFixed(2)}</td>
+                  </tr>
                 )}
               </tbody>
             </table>
