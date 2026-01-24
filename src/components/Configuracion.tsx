@@ -10,6 +10,8 @@ interface ConfiguracionProps {
   onConfigSaved?: () => void
 }
 
+type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'no_available' | 'error'
+
 export default function Configuracion({ categorias, onConfigSaved }: ConfiguracionProps) {
   const [prefijoTicket, setPrefijoTicket] = useState('BOL')
   const [numeroTicket, setNumeroTicket] = useState('1')
@@ -31,12 +33,41 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
 
   // App Version State
   const [appVersion, setAppVersion] = useState('')
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle')
+  const [progressObj, setProgressObj] = useState<any>(null)
 
   useEffect(() => {
     // Check Electron Version
     const ipcRenderer = (window as any).require ? (window as any).require('electron').ipcRenderer : null;
     if (ipcRenderer) {
       ipcRenderer.invoke('get-app-version').then((ver: string) => setAppVersion(ver)).catch((err: any) => console.error(err));
+
+      // Listeners for Updates
+      ipcRenderer.on('checking_for_update', () => setUpdateStatus('checking'));
+      ipcRenderer.on('update_available', () => setUpdateStatus('downloading')); // Usually auto-downloads
+      ipcRenderer.on('update_not_available', () => {
+        setUpdateStatus('no_available');
+        setTimeout(() => setUpdateStatus('idle'), 4000);
+      });
+      ipcRenderer.on('download_progress', (_event: any, progress: any) => {
+        setUpdateStatus('downloading');
+        setProgressObj(progress);
+      });
+      ipcRenderer.on('update_downloaded', () => setUpdateStatus('downloaded'));
+      ipcRenderer.on('update_error', (_event: any, err: any) => {
+        console.error("Update Error:", err);
+        setUpdateStatus('error');
+        setTimeout(() => setUpdateStatus('idle'), 5000);
+      });
+
+      return () => {
+        ipcRenderer.removeAllListeners('checking_for_update');
+        ipcRenderer.removeAllListeners('update_available');
+        ipcRenderer.removeAllListeners('update_not_available');
+        ipcRenderer.removeAllListeners('download_progress');
+        ipcRenderer.removeAllListeners('update_downloaded');
+        ipcRenderer.removeAllListeners('update_error');
+      };
     }
 
     const prefijoT = localStorage.getItem('pos_ticket_prefijo') || 'TICK'
@@ -479,24 +510,83 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
             <p style={{ marginTop: '5px' }}>Conecta con GitHub para buscar la última versión disponible del sistema.</p>
           </div>
           <div className="config-actions" style={{ justifyContent: 'flex-start', marginTop: '15px' }}>
-            <button
-              className="btn-guardar-config"
-              style={{ backgroundColor: '#333' }}
-              onClick={() => {
-                const ipcRenderer = (window as any).require ? (window as any).require('electron').ipcRenderer : null;
-                if (ipcRenderer) {
-                  ipcRenderer.send('check-for-updates');
-                  alert('🔍 Buscando actualizaciones en segundo plano...');
-                } else {
-                  alert('Funcionalidad solo disponible en la versión de escritorio.');
-                }
-              }}
-            >
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ marginRight: '8px' }}>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Buscar Actualizaciones
-            </button>
+
+            {updateStatus === 'idle' && (
+              <button
+                className="btn-guardar-config"
+                style={{ backgroundColor: '#333' }}
+                onClick={() => {
+                  const ipcRenderer = (window as any).require ? (window as any).require('electron').ipcRenderer : null;
+                  if (ipcRenderer) {
+                    setUpdateStatus('checking'); // Feedback inmediato
+                    ipcRenderer.send('check-for-updates');
+                  } else {
+                    alert('Funcionalidad solo disponible en la versión de escritorio.');
+                  }
+                }}
+              >
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ marginRight: '8px' }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Buscar Actualizaciones
+              </button>
+            )}
+
+            {updateStatus === 'checking' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#666' }}>
+                <div className="spinner-border" style={{ width: '1.2rem', height: '1.2rem', borderWidth: '2px', borderStyle: 'solid', borderColor: '#ccc', borderTopColor: '#333', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                <span>Buscando actualizaciones...</span>
+                <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+              </div>
+            )}
+
+            {updateStatus === 'downloading' && (
+              <div style={{ width: '100%', maxWidth: '400px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '0.9rem' }}>
+                  <span>Descargando actualización...</span>
+                  <span>{progressObj ? Math.round(progressObj.percent) : 0}%</span>
+                </div>
+                <div style={{ width: '100%', height: '8px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ width: `${progressObj ? progressObj.percent : 0}%`, height: '100%', background: '#0ea5e9', transition: 'width 0.3s ease' }}></div>
+                </div>
+                {progressObj && (
+                  <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '2px' }}>
+                    {(progressObj.transferred / 1024 / 1024).toFixed(1)} MB / {(progressObj.total / 1024 / 1024).toFixed(1)} MB
+                    {' - '} {(progressObj.bytesPerSecond / 1024).toFixed(0)} KB/s
+                  </div>
+                )}
+              </div>
+            )}
+
+            {updateStatus === 'downloaded' && (
+              <button
+                className="btn-guardar-config"
+                style={{ backgroundColor: '#22c55e' }}
+                onClick={() => {
+                  const ipcRenderer = (window as any).require ? (window as any).require('electron').ipcRenderer : null;
+                  if (ipcRenderer) {
+                    ipcRenderer.send('restart_app');
+                  }
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21h5v-5" /></svg>
+                Reiniciar e Instalar
+              </button>
+            )}
+
+            {updateStatus === 'no_available' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#059669', padding: '0.5rem', background: '#ecfdf5', borderRadius: '6px' }}>
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                <span>Tu sistema está actualizado.</span>
+              </div>
+            )}
+
+            {updateStatus === 'error' && (
+              <div style={{ color: '#dc2626', padding: '0.5rem', background: '#fef2f2', borderRadius: '6px' }}>
+                ❌ Hubo un error al buscar actualizaciones. Intenta luego.
+              </div>
+            )}
+
           </div>
         </div>
 

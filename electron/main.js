@@ -94,6 +94,12 @@ app.on('window-all-closed', () => {
 });
 
 // Auto Updater Events
+// Auto Updater Events
+autoUpdater.on('checking-for-update', () => {
+  log.info('Checking for updates...');
+  if (mainWindow) mainWindow.webContents.send('checking_for_update');
+});
+
 autoUpdater.on('update-available', () => {
   log.info('Update available.');
   if (mainWindow) mainWindow.webContents.send('update_available');
@@ -101,45 +107,32 @@ autoUpdater.on('update-available', () => {
 
 autoUpdater.on('update-not-available', () => {
   log.info('Update not available.');
-  if (isManualCheck) {
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Sin actualizaciones',
-      message: 'Tu sistema ya tiene la última versión instalada.',
-      buttons: ['Aceptar']
-    });
-    isManualCheck = false;
-  }
+  if (mainWindow) mainWindow.webContents.send('update_not_available');
+  isManualCheck = false;
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  let log_message = "Download speed: " + progressObj.bytesPerSecond;
+  log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+  log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+  log.info(log_message);
+
+  if (mainWindow) mainWindow.webContents.send('download_progress', progressObj);
 });
 
 autoUpdater.on('update-downloaded', () => {
   log.info('Update downloaded.');
   if (mainWindow) mainWindow.webContents.send('update_downloaded');
-
   isManualCheck = false;
-
-  // Ask user to restart
-  dialog.showMessageBox(mainWindow, {
-    type: 'info',
-    title: 'Actualización lista',
-    message: 'Una nueva versión se ha descargado. ¿Deseas reiniciar ahora para instalarla?',
-    buttons: ['Reiniciar ahora', 'Después']
-  }).then((result) => {
-    if (result.response === 0) {
-      autoUpdater.quitAndInstall();
-    }
-  });
 });
 
 autoUpdater.on('error', (err) => {
   log.error('Error in auto-updater: ' + err);
-  if (isManualCheck) {
-    dialog.showMessageBox(mainWindow, {
-      type: 'error',
-      title: 'Error de actualización',
-      message: 'Hubo un error al buscar actualizaciones. \nDetalles: ' + err.toString(),
-      buttons: ['Aceptar']
-    });
-    isManualCheck = false;
-  }
+  if (mainWindow) mainWindow.webContents.send('update_error', err.toString());
+  isManualCheck = false;
+});
+
+// Handle Restart Request from Renderer
+ipcMain.on('restart_app', () => {
+  autoUpdater.quitAndInstall();
 });
