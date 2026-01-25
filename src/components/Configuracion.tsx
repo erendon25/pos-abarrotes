@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ConfiguracionEmpresa, Categoria } from '../types'
 import { crearRespaldoDesdeLocalStorage, aplicarRespaldoMergeEnLocalStorage } from '../utils/respaldo'
-import { db } from '../firebase'
-import { writeBatch, doc } from 'firebase/firestore'
 import './Configuracion.css'
 
 interface ConfiguracionProps {
@@ -13,6 +11,7 @@ interface ConfiguracionProps {
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'no_available' | 'error'
 
 export default function Configuracion({ categorias, onConfigSaved }: ConfiguracionProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [prefijoTicket, setPrefijoTicket] = useState('BOL')
   const [numeroTicket, setNumeroTicket] = useState('1')
   const [prefijoBoleta, setPrefijoBoleta] = useState('BOL')
@@ -143,6 +142,7 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
 
     // Guardar porcentajes
     localStorage.setItem('pos_porcentaje_tarjeta', porcentajeTarjeta)
+    localStorage.setItem('pos_margen_ganancia', margenGanancia)
 
     // Guardar empresa
     localStorage.setItem('pos_empresa', JSON.stringify(empresa))
@@ -427,16 +427,18 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
               Descargar Respaldo
             </button>
 
-            <div style={{ position: 'relative' }}>
+
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
               <input
                 type="file"
                 accept=".json"
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                ref={fileInputRef}
+                style={{ display: 'none' }}
                 onChange={(e) => {
                   const file = e.target.files?.[0]
                   if (!file) return
 
-                  if (!confirm('⚠️ ATENCIÓN: Al restaurar, se SOBRESCRIBIRÁ la información actual con la del respaldo.\n\nEsto actualizará el stock y productos tanto en este equipo como en la nube.\n\n¿Estás seguro de continuar?')) {
+                  if (!confirm('⚠️ ATENCIÓN: Al restaurar, se SOBRESCRIBIRÁ la información actual de este equipo con la del respaldo.\n\n¿Estás seguro de continuar?')) {
                     e.target.value = ''
                     return
                   }
@@ -447,37 +449,9 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
                       const json = JSON.parse(event.target?.result as string)
 
                       // Usar modo 'sobrescribir' para garantizar que el backup mande
-                      const resultado = aplicarRespaldoMergeEnLocalStorage(json, 'sobrescribir')
+                      aplicarRespaldoMergeEnLocalStorage(json, 'sobrescribir')
 
-                      alert(`✅ Datos restaurados localmente.\nAhora se sincronizarán con la nube para evitar pérdidas...`)
-
-                      // Sincronizar con Firebase (Batch Update)
-                      try {
-                        const batchLimit = 400 // Firestore limit is 500
-                        const productos = resultado.productosRestaurados
-                        const total = productos.length
-                        let processed = 0
-
-                        while (processed < total) {
-                          const batch = writeBatch(db)
-                          const chunk = productos.slice(processed, processed + batchLimit)
-                          chunk.forEach((p) => {
-                            // Asegurar que no enviamos undefineds
-                            const data: any = { ...p }
-                            // Serializar fechas si es necesario o dejar que Firestore maneje Date
-                            // Firestore acepta Date objects.
-                            batch.set(doc(db, "productos", p.id), data)
-                          })
-                          await batch.commit()
-                          processed += chunk.length
-                        }
-                        console.log("Sincronización completa con Firebase")
-                      } catch (errSync) {
-                        console.error("Error al sincronizar con Firebase:", errSync)
-                        alert("⚠️ Advertencia: Los datos se restauraron localmente, pero hubo un error al sincronizar con la nube. Verifique su conexión.")
-                      }
-
-                      alert(`✅ Restauración y Sincronización completadas con éxito.\nEl sistema se reiniciará.`)
+                      alert(`✅ Datos restaurados localmente con éxito.\nEl sistema se reiniciará para aplicar los cambios.`)
                       window.location.reload()
 
                     } catch (error) {
@@ -492,6 +466,7 @@ export default function Configuracion({ categorias, onConfigSaved }: Configuraci
               <button
                 className="btn-guardar-config"
                 style={{ backgroundColor: '#22c55e', display: 'flex', alignItems: 'center', gap: '8px' }}
+                onClick={() => fileInputRef.current?.click()}
               >
                 <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />

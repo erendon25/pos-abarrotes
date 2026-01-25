@@ -460,6 +460,25 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
           </div>
         </div>
 
+        {/* Ganancia Estimada */}
+        <div className="stat-card grande" style={{ borderLeft: '4px solid #10b981' }}>
+          <div className="stat-icon">📈</div>
+          <div className="stat-info">
+            <span className="stat-label">Ganancia Estimada</span>
+            <span className="stat-value">
+              S/ {(() => {
+                const totalCobrado = ventasPorMetodo.efectivo + ventasPorMetodo.yape + ventasPorMetodo.tarjeta
+                const cobrosDeudaVentas = ventasFiltradas.filter(v => v.items.length === 0 && !v.anulada)
+                const totalCobroDeudas = cobrosDeudaVentas.reduce((sum, v) => sum + v.total, 0)
+                const totalVentaProductos = totalCobrado - totalCobroDeudas
+                const margen = parseFloat(localStorage.getItem('pos_margen_ganancia') || '20')
+                return (totalVentaProductos * (margen / 100)).toFixed(2)
+              })()}
+            </span>
+            <span className="stat-subtitle">Base: {localStorage.getItem('pos_margen_ganancia') || '20'}% de venta cobrada</span>
+          </div>
+        </div>
+
         {/* ... (Existing charts logic same, passed props) */}
 
         {/* Ventas por Método de Pago */}
@@ -715,6 +734,6 @@ export default function Reportes({ ventas, onVolver, onAnularVenta, onReimprimir
           )}
         </div>
       </div>
-    </div>
+    </div >
   )
 }

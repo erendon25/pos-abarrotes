@@ -1,4 +1,4 @@
-import { Producto, Categoria, Usuario, ConfiguracionEmpresa } from '../types'
+import { Producto, Categoria, Usuario, ConfiguracionEmpresa, Cliente } from '../types'
 
 export const STORAGE_KEYS = {
   productos: 'pos_productos',
@@ -16,6 +16,8 @@ export const STORAGE_KEYS = {
   porcentajeBoleta: 'pos_porcentaje_boleta',
   porcentajeTarjeta: 'pos_porcentaje_tarjeta',
   proveedoresFrecuentes: 'pos_proveedores_frecuentes',
+  clientes: 'pos_clientes',
+  margenGanancia: 'pos_margen_ganancia',
 } as const
 
 export type RespaldoPOSv1 = {
@@ -39,8 +41,10 @@ export type RespaldoPOSv1 = {
     porcentajes?: {
       boleta?: string
       tarjeta?: string
+      margenGanancia?: string
     }
     proveedoresFrecuentes?: any[]
+    clientes?: Cliente[]
   }
 }
 
@@ -90,6 +94,7 @@ export function crearRespaldoDesdeLocalStorage(): RespaldoPOSv1 {
     localStorage.getItem(STORAGE_KEYS.proveedoresFrecuentes),
     []
   )
+  const clientes = safeParseJSON<Cliente[]>(localStorage.getItem(STORAGE_KEYS.clientes), [])
 
   return {
     version: 1,
@@ -112,8 +117,10 @@ export function crearRespaldoDesdeLocalStorage(): RespaldoPOSv1 {
       porcentajes: {
         boleta: localStorage.getItem(STORAGE_KEYS.porcentajeBoleta) || undefined,
         tarjeta: localStorage.getItem(STORAGE_KEYS.porcentajeTarjeta) || undefined,
+        margenGanancia: localStorage.getItem(STORAGE_KEYS.margenGanancia) || undefined,
       },
       proveedoresFrecuentes,
+      clientes,
     },
   }
 }
@@ -400,6 +407,9 @@ export function aplicarRespaldoMergeEnLocalStorage(respaldoRaw: any, modo: 'merg
   if (!localStorage.getItem(STORAGE_KEYS.porcentajeTarjeta) && data?.porcentajes?.tarjeta) {
     localStorage.setItem(STORAGE_KEYS.porcentajeTarjeta, String(data.porcentajes.tarjeta))
   }
+  if (!localStorage.getItem(STORAGE_KEYS.margenGanancia) && data?.porcentajes?.margenGanancia) {
+    localStorage.setItem(STORAGE_KEYS.margenGanancia, String(data.porcentajes.margenGanancia))
+  }
 
   // Proveedores frecuentes: merge por nombre (sumando conteos)
   if (Array.isArray(data.proveedoresFrecuentes) && data.proveedoresFrecuentes.length > 0) {
@@ -428,6 +438,22 @@ export function aplicarRespaldoMergeEnLocalStorage(respaldoRaw: any, modo: 'merg
     localStorage.setItem(STORAGE_KEYS.proveedoresFrecuentes, JSON.stringify(Array.from(map.values())))
   }
 
+  // Clientes
+  if (Array.isArray(data.clientes) && data.clientes.length > 0) {
+    if (modo === 'sobrescribir') {
+      localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(data.clientes))
+    } else {
+      const clientesExist = safeParseJSON<Cliente[]>(localStorage.getItem(STORAGE_KEYS.clientes), [])
+      const clientesMap = indexById(clientesExist)
+      data.clientes.forEach(c => {
+        // Merge: Update existing, add new. Prioritizing backup data?
+        // Usually backup is older or newer? If backup is restoring state, we trust backup.
+        clientesMap.set(c.id, c)
+      })
+      localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(Array.from(clientesMap.values())))
+    }
+  }
+
   return {
     nuevos: {
       productos: nuevosProductos,
@@ -440,6 +466,3 @@ export function aplicarRespaldoMergeEnLocalStorage(respaldoRaw: any, modo: 'merg
     productosRestaurados: productosFinal
   }
 }
-
-
-
