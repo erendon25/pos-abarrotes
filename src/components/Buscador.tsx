@@ -13,10 +13,17 @@ interface BuscadorProps {
 export default function Buscador({ onFiltroChange, onScan, activo, filtroExterno }: BuscadorProps) {
     const [localFiltro, setLocalFiltro] = useState(filtroExterno)
     const inputRef = useRef<HTMLInputElement>(null)
+    const bufferRef = useRef(localFiltro) // Buffer for rapid scanning
+
+    // Sync buffer when localFiltro changes (e.g. from parent props or typing)
+    useEffect(() => {
+        bufferRef.current = localFiltro
+    }, [localFiltro])
 
     // Update local state if parent changes it (e.g. clearing after scan)
     useEffect(() => {
         setLocalFiltro(filtroExterno)
+        bufferRef.current = filtroExterno
     }, [filtroExterno])
 
     // Debounce local input to update parent occasionally if needed, 
@@ -33,23 +40,47 @@ export default function Buscador({ onFiltroChange, onScan, activo, filtroExterno
         }
     }, [debouncedFiltro, onFiltroChange, filtroExterno])
 
-    // Global Keydown (moved from App.tsx mostly)
-    // Logic: "Global listener for scanning/typing"
+    // Global Keydown to capture scanning/typing anywhere
     useEffect(() => {
         if (!activo) return
 
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
-            // Ignore control keys
-            if (e.ctrlKey || e.altKey || e.metaKey || e.key.length > 1) return
+            // Ignore control keys, but allow normal typing
+            if (e.ctrlKey || e.altKey || e.metaKey) return
 
-            // Ignore if some other input is active
+            // If we are already in an input/textarea/select, let browser handle it
+            // EXCEPTION: If it is OUR input, handle Enter if needed? 
+            // No, Input's onKeyDown handles Enter.
             if (document.activeElement?.tagName === 'INPUT' ||
                 document.activeElement?.tagName === 'TEXTAREA' ||
                 document.activeElement?.tagName === 'SELECT') {
                 return
             }
 
-            inputRef.current?.focus()
+            // If it's a printable character (length 1)
+            if (e.key.length === 1) {
+                e.preventDefault()
+                inputRef.current?.focus()
+                // Append to buffer and update state
+                bufferRef.current += e.key
+                setLocalFiltro(bufferRef.current)
+            }
+            // If it's Backspace
+            else if (e.key === 'Backspace') {
+                inputRef.current?.focus()
+                bufferRef.current = bufferRef.current.slice(0, -1)
+                setLocalFiltro(bufferRef.current)
+            }
+            // If it's Enter (Scanner finished)
+            else if (e.key === 'Enter') {
+                e.preventDefault()
+                const code = bufferRef.current.trim()
+                if (code) {
+                    onScan(code)
+                    bufferRef.current = ''
+                    setLocalFiltro('')
+                }
+            }
         }
 
         window.addEventListener('keydown', handleGlobalKeyDown)
@@ -60,18 +91,16 @@ export default function Buscador({ onFiltroChange, onScan, activo, filtroExterno
             window.removeEventListener('keydown', handleGlobalKeyDown)
             clearTimeout(timer)
         }
-    }, [activo])
+    }, [activo, onScan])
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && localFiltro.trim()) {
-            // Immediate trigger for Enter
-            onScan(localFiltro.trim())
-            setLocalFiltro('') // Optional: clear after scan/enter? 
-            // In original App, scanning cleared filter if found, or left it if not.
-            // We'll let parent handle the logic, but usually scanners end with Enter.
-            // If parent finds product, it clears passed prop? 
-            // Wait, if parent clears 'filtro' state, we need to clear 'localFiltro'.
-            // So we need a prop 'filtroExterno' or similar to sync back if needed.
+        if (e.key === 'Enter') {
+            const val = localFiltro.trim()
+            if (val) {
+                onScan(val)
+                setLocalFiltro('')
+                bufferRef.current = ''
+            }
         }
     }
 
@@ -91,7 +120,10 @@ export default function Buscador({ onFiltroChange, onScan, activo, filtroExterno
                         className="filtro-input-main"
                         placeholder="Buscar por nombre, código de barras..."
                         value={localFiltro}
-                        onChange={(e) => setLocalFiltro(e.target.value)}
+                        onChange={(e) => {
+                            setLocalFiltro(e.target.value)
+                            bufferRef.current = e.target.value
+                        }}
                         onKeyDown={handleKeyDown}
                         autoFocus
                     />

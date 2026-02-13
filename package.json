@@ -1,12 +1,12 @@
 {
   "name": "pos-abarrotes",
-  "version": "1.2.1",
+  "version": "1.2.3",
   "author": "Erick Rendon",
   "description": "Punto de venta moderno para tienda de abarrotes",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npx tsc && vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"cross-env BROWSER=none npm run dev\" \"wait-on http://localhost:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
     "electron:build": "cross-env ELECTRON_BUILDER_CACHE=./.cache CSC_IDENTITY_AUTO_DISCOVERY=false vite build && electron-builder"

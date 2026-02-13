@@ -49,6 +49,19 @@ function IngresoMercaderiaComponent({
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<string>('')
   const [proveedoresFrecuentes, setProveedoresFrecuentes] = useState<ProveedorStat[]>([])
 
+  // Search State
+  const [busquedaProducto, setBusquedaProducto] = useState('')
+  const [mostrarResultados, setMostrarResultados] = useState(false)
+
+  const productosFiltrados = useMemo(() => {
+    if (!busquedaProducto.trim()) return []
+    const termino = busquedaProducto.toLowerCase()
+    return productos.filter(p =>
+      p.nombre.toLowerCase().includes(termino) ||
+      (p.codigoBarras && p.codigoBarras.includes(termino))
+    ).slice(0, 50)
+  }, [productos, busquedaProducto])
+
   const proveedoresTop = useMemo(() => {
     return [...proveedoresFrecuentes]
       .sort((a, b) => b.conteo - a.conteo || b.ultima.localeCompare(a.ultima))
@@ -124,7 +137,7 @@ function IngresoMercaderiaComponent({
     if (producto.esCerrado) {
       const cajas = parseFloat(cantidadCajas) || 0
       const unidades = parseFloat(cantidadUnidades) || 0
-      
+
       if (cajas === 0 && unidades === 0) {
         alert('Debe ingresar al menos una caja o unidad')
         return
@@ -208,7 +221,7 @@ function IngresoMercaderiaComponent({
       setProveedoresFrecuentes(lista)
       localStorage.setItem(STORAGE_KEY_PROVEEDORES, JSON.stringify(lista))
     }
-    
+
     // Limpiar formulario
     setProveedor('')
     setNumeroDocumento('')
@@ -305,18 +318,95 @@ function IngresoMercaderiaComponent({
             Puedes agregar múltiples productos diferentes en este ingreso. Agrega un producto a la vez y luego continúa agregando más.
           </p>
           <div className="form-grid">
-            <div className="form-group">
+            <div className="form-group" style={{ position: 'relative' }}>
               <label>Producto *</label>
-              <select
-                value={productoSeleccionado}
-                onChange={(e) => setProductoSeleccionado(e.target.value)}
-                className="input-form"
-              >
-                <option value="">Seleccionar producto</option>
-                {productos.map(p => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
-                ))}
-              </select>
+              <div className="search-input-wrapper">
+                <input
+                  type="text"
+                  value={productoSeleccionado ? (productos.find(p => p.id === productoSeleccionado)?.nombre || '') : busquedaProducto}
+                  onChange={(e) => {
+                    setBusquedaProducto(e.target.value)
+                    setProductoSeleccionado('') // Clear selection when typing
+                    setMostrarResultados(true)
+                  }}
+                  onFocus={() => {
+                    setBusquedaProducto('') // Optional: clear on click to search new? Or keep text?
+                    // Better: If selected, clear to allow search. If not, keep.
+                    if (productoSeleccionado) setBusquedaProducto('')
+                    setMostrarResultados(true)
+                  }}
+                  placeholder="Buscar producto por nombre o código..."
+                  className="input-form"
+                />
+                {productoSeleccionado && (
+                  <button
+                    className="btn-clear-selection"
+                    onClick={() => {
+                      setProductoSeleccionado('')
+                      setBusquedaProducto('')
+                      setMostrarResultados(true)
+                    }}
+                    title="Limpiar selección"
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '38px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '1.2rem',
+                      color: '#666'
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              {mostrarResultados && !productoSeleccionado && (
+                <div className="resultados-busqueda" style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  background: 'white',
+                  border: '1px solid #ddd',
+                  borderRadius: '0 0 8px 8px',
+                  maxHeight: '250px',
+                  overflowY: 'auto',
+                  zIndex: 1000,
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}>
+                  {productosFiltrados.length === 0 ? (
+                    <div style={{ padding: '10px', color: '#888' }}>No se encontraron productos</div>
+                  ) : (
+                    productosFiltrados.map(p => (
+                      <div
+                        key={p.id}
+                        onClick={() => {
+                          setProductoSeleccionado(p.id)
+                          setBusquedaProducto(p.nombre)
+                          setMostrarResultados(false)
+                        }}
+                        className="item-resultado"
+                        style={{
+                          padding: '10px',
+                          borderBottom: '1px solid #eee',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <span>{p.nombre}</span>
+                        <span style={{ fontSize: '0.8rem', color: '#666', background: '#f3f4f6', padding: '2px 6px', borderRadius: '4px' }}>
+                          Stock: {p.stock}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
             {productoSeleccionadoObj?.esCerrado ? (
               <>
@@ -402,7 +492,7 @@ function IngresoMercaderiaComponent({
           <div className="form-section">
             <h2>Productos a Ingresar ({items.length})</h2>
             <p className="form-hint">
-              {items.length === 1 
+              {items.length === 1
                 ? '1 producto agregado. Puedes agregar más productos antes de registrar el ingreso.'
                 : `${items.length} productos agregados. Puedes agregar más productos antes de registrar el ingreso.`}
             </p>
